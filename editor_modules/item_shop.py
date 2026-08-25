@@ -1,8 +1,17 @@
-import json
-import os
 import random
 from tkinter import ttk
 import tkinter as tk
+
+from jamboree_board_studio.core.items.item_shop import (
+    PHASES,
+    SHOPS,
+    SLOTS,
+    ItemShopParseError,
+    ShopSlotEntry,
+    empty_item_shop,
+    parse_item_shop,
+    serialize_item_shop,
+)
 
 class ItemShopEditor:
     def __init__(
@@ -100,191 +109,56 @@ class ItemShopEditor:
         return self.data_store
 
 
-def save_itemshop_mapdata(BASE_PATH, map_name, data):
-    def save_itemshop_map_json(data):
-        data_file = []
-        for shop_name in ["Koopa", "Kamek"]:
-            if shop_name == "Koopa":
-                type_value = 0
-            else:
-                type_value = 1
-            for p in range(0, 3):
-                if (
-                    data[f"{shop_name}Shop"][f"P{p}"]["slot1"]["item"] == "Empty"
-                    and data[f"{shop_name}Shop"][f"P{p}"]["slot2"]["item"] == "Empty"
-                    and data[f"{shop_name}Shop"][f"P{p}"]["slot3"]["item"] == "Empty"
-                    and data[f"{shop_name}Shop"][f"P{p}"]["slot4"]["item"] == "Empty"
-                    and data[f"{shop_name}Shop"][f"P{p}"]["slot5"]["item"] == "Empty"
-                    and data[f"{shop_name}Shop"][f"P{p}"]["slot6"]["item"] == "Empty"
-                ):
-                    print(
-                        f"No Item in {map_name} {shop_name}Shop in Phase {p}, Replacing 1st empty slot with 'Stone'"
-                    )
-                    data_file.append(
-                        {
-                            "Phase": p,
-                            "Type": type_value,
-                            "Item": "Stone",
-                            "Count": 1,
-                            "Price": 0,
-                        },
-                    )
-                for s in range(1, 7):
-                    if data[f"{shop_name}Shop"][f"P{p}"][f"slot{s}"]["item"] != "Empty":
-                        data_file.append(
-                            {
-                                "Phase": p,
-                                "Type": type_value,
-                                "Item": data[f"{shop_name}Shop"][f"P{p}"][f"slot{s}"][
-                                    "item"
-                                ],
-                                "Count": int(
-                                    data[f"{shop_name}Shop"][f"P{p}"][f"slot{s}"][
-                                        "count"
-                                    ]
-                                ),
-                                "Price": int(
-                                    data[f"{shop_name}Shop"][f"P{p}"][f"slot{s}"][
-                                        "price"
-                                    ]
-                                ),
-                            },
-                        )
-        return data_file
+def _entries_to_nested_dict(entries):
+    """[ShopSlotEntry, ...] (36) -> {"KoopaShop": {"P0": {"slot1": {...}, ...}, ...}, ...}
 
-    file_name = os.path.join(
-        "bd~bd00.nx", "bd", "bd00", "data", f"bd00_ItemShop_{map_name}.json"
-    )
-    file_path = os.path.join(BASE_PATH, file_name)
-    file_data = {}
-    file_data[f"{map_name}"] = []
-    file_data[f"{map_name}"] = save_itemshop_map_json(data)
-    with open(file_path, "w", encoding="utf-8-sig") as f:
-        json.dump(file_data, f)
+    Matches the shape editor.py/ItemShopEditor expect: count/price as
+    strings (mirroring what ttk widgets' .get() returns), keyed by
+    "<Shop>Shop" / "P<phase>" / "slot<n>".
+    """
+    grid = {f"{shop}Shop": {f"P{phase}": {} for phase in PHASES} for shop in SHOPS}
+    for entry in entries:
+        grid[f"{entry.shop}Shop"][f"P{entry.phase}"][f"slot{entry.slot}"] = {
+            "item": entry.item,
+            "count": str(entry.count),
+            "price": str(entry.price),
+        }
+    return grid
+
+
+def _nested_dict_to_entries(data):
+    """Inverse of _entries_to_nested_dict."""
+    return [
+        ShopSlotEntry(
+            shop=shop,
+            phase=phase,
+            slot=slot_no,
+            item=data[f"{shop}Shop"][f"P{phase}"][f"slot{slot_no}"]["item"],
+            count=int(data[f"{shop}Shop"][f"P{phase}"][f"slot{slot_no}"]["count"]),
+            price=int(data[f"{shop}Shop"][f"P{phase}"][f"slot{slot_no}"]["price"]),
+        )
+        for shop in SHOPS
+        for phase in PHASES
+        for slot_no in SLOTS
+    ]
+
+
+def save_itemshop_mapdata(BASE_PATH, map_name, data):
+    """Save shop data (the nested {"KoopaShop": {"P0": {...}}} shape) via the shared adapter."""
+    serialize_item_shop(_nested_dict_to_entries(data), BASE_PATH, map_name)
 
 
 def load_itemshop_mapdata(BASE_PATH, map_name):
-    def load_itemshop_map_json(map_name, BASE_PATH):
-        file_name = os.path.join(
-            "bd~bd00.nx", "bd", "bd00", "data", f"bd00_ItemShop_{map_name}.json"
-        )
-        file_path = os.path.join(BASE_PATH, file_name)
-        try:
-            with open(file_path, "r", encoding="utf-8-sig") as f:
-                return json.load(f)[f"{map_name}"]
-        except FileNotFoundError:
-            print(f"File not found : {file_name}")
-            return []
-        except json.JSONDecodeError as error:
-            print(f"Error occurred while reading file : {file_name}")
-            print(error)
-            return []
+    """Load shop data as the nested {"KoopaShop": {"P0": {...}}} shape this module's UI expects.
 
-    def init_itemshop_slots():
-        return {
-            "slot1": {"item": "Empty", "count": "0", "price": "0"},
-            "slot2": {"item": "Empty", "count": "0", "price": "0"},
-            "slot3": {"item": "Empty", "count": "0", "price": "0"},
-            "slot4": {"item": "Empty", "count": "0", "price": "0"},
-            "slot5": {"item": "Empty", "count": "0", "price": "0"},
-            "slot6": {"item": "Empty", "count": "0", "price": "0"},
-        }
-
-    def read_itemshops(item_shop_data):
-        if not isinstance(item_shop_data, list):
-            raise TypeError("item_shop_data doit être un tableau d'objets.")
-
-        koopa_P0 = init_itemshop_slots()
-        koopa_P1 = init_itemshop_slots()
-        koopa_P2 = init_itemshop_slots()
-        kamek_P0 = init_itemshop_slots()
-        kamek_P1 = init_itemshop_slots()
-        kamek_P2 = init_itemshop_slots()
-
-        slot_tracker = {
-            "Koopa_P0": 1,
-            "Koopa_P1": 1,
-            "Koopa_P2": 1,
-            "Kamek_P0": 1,
-            "Kamek_P1": 1,
-            "Kamek_P2": 1,
-        }
-
-        for entry in item_shop_data:
-            if not all(
-                key in entry for key in ["Phase", "Type", "Item", "Count", "Price"]
-            ):
-                continue
-
-            phase = entry["Phase"]
-            shop_type = entry["Type"]
-
-            if shop_type == 0:
-                if phase == 0:
-                    slot_num = f"slot{slot_tracker['Koopa_P0']}"
-                    koopa_P0[slot_num] = {
-                        "item": entry["Item"],
-                        "count": str(entry["Count"]),
-                        "price": str(entry["Price"]),
-                    }
-                    slot_tracker["Koopa_P0"] += 1
-                elif phase == 1:
-                    slot_num = f"slot{slot_tracker['Koopa_P1']}"
-                    koopa_P1[slot_num] = {
-                        "item": entry["Item"],
-                        "count": str(entry["Count"]),
-                        "price": str(entry["Price"]),
-                    }
-                    slot_tracker["Koopa_P1"] += 1
-                elif phase == 2:
-                    slot_num = f"slot{slot_tracker['Koopa_P2']}"
-                    koopa_P2[slot_num] = {
-                        "item": entry["Item"],
-                        "count": str(entry["Count"]),
-                        "price": str(entry["Price"]),
-                    }
-                    slot_tracker["Koopa_P2"] += 1
-            elif shop_type == 1:
-                if phase == 0:
-                    slot_num = f"slot{slot_tracker['Kamek_P0']}"
-                    kamek_P0[slot_num] = {
-                        "item": entry["Item"],
-                        "count": str(entry["Count"]),
-                        "price": str(entry["Price"]),
-                    }
-                    slot_tracker["Kamek_P0"] += 1
-                elif phase == 1:
-                    slot_num = f"slot{slot_tracker['Kamek_P1']}"
-                    kamek_P1[slot_num] = {
-                        "item": entry["Item"],
-                        "count": str(entry["Count"]),
-                        "price": str(entry["Price"]),
-                    }
-                    slot_tracker["Kamek_P1"] += 1
-                elif phase == 2:
-                    slot_num = f"slot{slot_tracker['Kamek_P2']}"
-                    kamek_P2[slot_num] = {
-                        "item": entry["Item"],
-                        "count": str(entry["Count"]),
-                        "price": str(entry["Price"]),
-                    }
-                    slot_tracker["Kamek_P2"] += 1
-
-        regroupement_map = {
-            "KoopaShop": {
-                "P0": koopa_P0,
-                "P1": koopa_P1,
-                "P2": koopa_P2,
-            },
-            "KamekShop": {
-                "P0": kamek_P0,
-                "P1": kamek_P1,
-                "P2": kamek_P2,
-            },
-        }
-        return regroupement_map
-
-    item_shop_data = load_itemshop_map_json(map_name, BASE_PATH)
-
-    map_data = read_itemshops(item_shop_data)
-    return map_data
+    Delegates to jamboree_board_studio.core.items.item_shop; keeps this
+    function's original behavior of treating a missing/invalid file as
+    "every slot empty" rather than raising, since that adapter is
+    stricter by design (see its docstring).
+    """
+    try:
+        entries = parse_item_shop(BASE_PATH, map_name)
+    except ItemShopParseError as error:
+        print(error)
+        entries = empty_item_shop()
+    return _entries_to_nested_dict(entries)

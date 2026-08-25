@@ -1,14 +1,16 @@
-"""GUI regression tests for wiring editor_modules/{hidden_block,item_bag,item_mass}.py
-onto the new jamboree_board_studio.core.items adapters.
+"""GUI regression tests for wiring editor_modules/{hidden_block,item_bag,
+item_mass,item_shop}.py onto the new jamboree_board_studio.core.items
+adapters.
 
-Those three modules' load_*/save_* functions used to do their own ad hoc
+Those four modules' load_*/save_* functions used to do their own ad hoc
 JSON file IO; they now delegate to core.items' parse_*/serialize_*
 functions while keeping their exact original signatures and return
 shapes, so the Tkinter widget classes (HiddenBlockEditor, ItemBagEditor,
-ItemMassEditor) needed no changes at all. These tests exist to prove
-that swap didn't change real, observable behavior: data loaded through
-the actual widgets still shows correctly, and a save still round-trips
-through the real widgets and back out to the same files on disk.
+ItemMassEditor, ItemShopEditor) needed no changes at all. These tests
+exist to prove that swap didn't change real, observable behavior: data
+loaded through the actual widgets still shows correctly, and a save
+still round-trips through the real widgets and back out to the same
+files on disk.
 """
 
 import json
@@ -54,7 +56,28 @@ def test_item_mass_loads_into_the_real_widget(tk_app):
     assert "GoldPipe" in lot1_items
 
 
-def test_save_round_trips_hidden_block_item_bag_and_item_mass_to_disk(
+def test_item_shop_loads_into_the_real_widget(tk_app):
+    app = tk_app
+    first_tab = app.notebook.nametowidget(app.notebook.tabs()[0])
+
+    # Fixture: Koopa P0 slot1 = Kinoko (Count 1, Price 10), Kamek P0
+    # slot1 = Stone (Count 2, Price 20); slot position is inferred from
+    # file order, so both land in slot1 of their own shop/phase.
+    koopa_slot1 = first_tab.koopa_shop.widgets["P0"]["slot1"]
+    assert koopa_slot1["item"].get() == "Kinoko"
+    assert koopa_slot1["count"].get() == "1"
+    assert koopa_slot1["price"].get() == "10"
+
+    kamek_slot1 = first_tab.kamek_shop.widgets["P0"]["slot1"]
+    assert kamek_slot1["item"].get() == "Stone"
+    assert kamek_slot1["count"].get() == "2"
+    assert kamek_slot1["price"].get() == "20"
+
+    # Untouched slots default to Empty, not leftover/garbage state.
+    assert first_tab.koopa_shop.widgets["P0"]["slot2"]["item"].get() == "Empty"
+
+
+def test_save_round_trips_hidden_block_item_bag_item_mass_and_item_shop_to_disk(
     tk_app, full_workspace
 ):
     app = tk_app
@@ -70,6 +93,19 @@ def test_save_round_trips_hidden_block_item_bag_and_item_mass_to_disk(
         (0, -1, 10),
         (1, 5, 20),
     }
+
+    with open(
+        os.path.join(data_dir, "bd00_ItemShop_Map01.json"), "r", encoding="utf-8-sig"
+    ) as f:
+        item_shop = json.load(f)["Map01"]
+    koopa_p0 = next(e for e in item_shop if e["Type"] == 0 and e["Phase"] == 0)
+    kamek_p0 = next(e for e in item_shop if e["Type"] == 1 and e["Phase"] == 0)
+    assert (koopa_p0["Item"], koopa_p0["Count"], koopa_p0["Price"]) == ("Kinoko", 1, 10)
+    assert (kamek_p0["Item"], kamek_p0["Count"], kamek_p0["Price"]) == ("Stone", 2, 20)
+    # 6 (shop, phase) groups total (2 shops x 3 phases); 2 have real
+    # content (Koopa P0, Kamek P0), the other 4 start fully empty and
+    # should each round-trip to exactly one Stone placeholder entry.
+    assert len(item_shop) == 2 + 4
 
     with open(
         os.path.join(data_dir, "bd00_ItemBag_Map01.json"), "r", encoding="utf-8-sig"

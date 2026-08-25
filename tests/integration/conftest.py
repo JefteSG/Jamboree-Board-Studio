@@ -105,7 +105,15 @@ def build_full_workspace(workspace_path: str) -> None:
             _bd00_path(workspace_path, f"bd00_ItemMass_{xx}.json"),
             {xx: [{"Item": "Kinoko", "No": 0}, {"Item": "GoldPipe", "No": 1}]},
         )
-        _write_json(_bd00_path(workspace_path, f"bd00_ItemShop_{xx}.json"), {xx: []})
+        _write_json(
+            _bd00_path(workspace_path, f"bd00_ItemShop_{xx}.json"),
+            {
+                xx: [
+                    {"Phase": 0, "Type": 0, "Item": "Kinoko", "Count": 1, "Price": 10},
+                    {"Phase": 0, "Type": 1, "Item": "Stone", "Count": 2, "Price": 20},
+                ]
+            },
+        )
         _write_json(
             _bd00_path(workspace_path, f"bd00_LuckyMass_{xx}.json"),
             {xx: [_full_rate_entry("7Coin")]},
