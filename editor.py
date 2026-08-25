@@ -37,6 +37,7 @@ from editor_modules.map_layout import (
 from jamboree_board_studio.core.board.parser import build_board_from_raw
 from jamboree_board_studio.ui.widgets.board_canvas import BoardCanvas
 from jamboree_board_studio.ui.widgets.inspector_panel import InspectorPanel
+from jamboree_board_studio.ui.widgets.space_list_panel import SpaceListPanel
 
 APP_WIDTH = 1300
 APP_HEIGHT = 1000
@@ -253,28 +254,42 @@ class MapTab(tk.Frame):
         self.main_notebook.add(
             self.board_workspace_tab, text="Board Workspace (Preview)"
         )
-        self.board_workspace_tab.columnconfigure(0, weight=4)
-        self.board_workspace_tab.columnconfigure(1, weight=1)
+        self.board_workspace_tab.columnconfigure(0, weight=1)
+        self.board_workspace_tab.columnconfigure(1, weight=4)
+        self.board_workspace_tab.columnconfigure(2, weight=1)
         self.board_workspace_tab.rowconfigure(0, weight=1)
 
         self.board = None
+        self.space_list = SpaceListPanel(
+            self.board_workspace_tab, on_select=self._on_board_space_selected
+        )
+        self.space_list.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
         self.board_canvas = BoardCanvas(
             self.board_workspace_tab, on_select=self._on_board_space_selected
         )
-        self.board_canvas.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.board_canvas.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
         self.inspector_panel = InspectorPanel(
             self.board_workspace_tab, on_apply=self._on_board_space_applied
         )
-        self.inspector_panel.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        self.inspector_panel.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
 
     def _on_board_space_selected(self, space):
+        # Hub for selection coming from either the space list or the
+        # canvas: push the same selection to every widget that shows it.
+        # BoardCanvas.select_space()/SpaceListPanel.select_space() only
+        # highlight (they don't re-fire on_select), so this can't loop.
         self.inspector_panel.show_space(self.board.id, space)
+        self.board_canvas.select_space(space.id)
+        self.space_list.select_space(space.id)
 
     def _on_board_space_applied(self, space):
-        # Redraw so the canvas reflects the new type's color immediately;
-        # the underlying game_data was already updated by the inspector.
+        # Refresh the canvas (new type's color) and the list row (new type
+        # text); the underlying game_data was already updated in place by
+        # the inspector.
         self.board_canvas.select_space(space.id)
+        self.space_list.refresh_space(space)
 
     def load_data(self):
         self.item_shop_data = load_itemshop_mapdata(self.WORKSPACE_PATH, self.map_name)
@@ -322,6 +337,7 @@ class MapTab(tk.Frame):
             reverse_x=map_layout_settings[self.map_name]["reverse_x"],
             reverse_y=map_layout_settings[self.map_name]["reverse_y"],
         )
+        self.space_list.load_board(self.board)
         self.inspector_panel.clear()
 
     def randomize_data(self):
