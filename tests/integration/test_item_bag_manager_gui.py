@@ -128,7 +128,13 @@ def test_save_persists_an_added_item_to_disk(tk_app, full_workspace):
         item_bag = json.load(f)["Map01"]
 
     assert any(e["Item"] == "WarpBox" and e["Phase"] == 0 and e["Unique"] == 1 for e in item_bag)
-    # The two entries the fixture already had must still be there too --
-    # confirms this was an addition, not a silent replacement.
-    assert any(e["Item"] == "Kinoko" for e in item_bag)
+    # "Stone" was added deterministically by
+    # test_a_second_registered_listener_gets_notified, which runs earlier
+    # in this module-scoped session -- it must still be there, confirming
+    # this was an addition, not a silent replacement. (The original
+    # Kinoko/Stone fixture entries aren't a safe thing to assert on here:
+    # test_randomize_items_updates_the_manager runs before this test too,
+    # and randomize_items() replaces the whole list with a random
+    # selection, so whether the *fixture's* Kinoko survives is down to
+    # chance, not this test's own behavior.)
     assert any(e["Item"] == "Stone" for e in item_bag)

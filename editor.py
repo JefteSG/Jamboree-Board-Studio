@@ -15,6 +15,7 @@ from jamboree_board_studio.legacy.editor_modules.item_bag import (
     save_itembag_mapdata,
 )
 from jamboree_board_studio.legacy.editor_modules.item_mass import (
+    ItemMassDataManager,
     ItemMassEditor,
     load_itemmass_mapdata,
     save_itemmass_mapdata,
@@ -39,6 +40,7 @@ from jamboree_board_studio.core.board.parser import build_board_from_raw
 from jamboree_board_studio.ui.widgets.board_canvas import BoardCanvas
 from jamboree_board_studio.ui.widgets.hidden_block_panel import HiddenBlockPanel
 from jamboree_board_studio.ui.widgets.item_bag_panel import ItemBagPanel
+from jamboree_board_studio.ui.widgets.item_mass_panel import ItemMassPanel
 from jamboree_board_studio.ui.widgets.inspector_panel import InspectorPanel
 from jamboree_board_studio.ui.widgets.space_list_panel import SpaceListPanel
 
@@ -117,7 +119,7 @@ class MapTab(tk.Frame):
         map_name,
         item_shop_data,
         item_bag_data_manager,
-        item_mass_data,
+        item_mass_data_manager,
         event_data_manager,
         hiddenblock_data_manager,
         luckymass_data,
@@ -130,7 +132,7 @@ class MapTab(tk.Frame):
         self.WORKSPACE_PATH = WORKSPACE_PATH
         self.item_shop_data = item_shop_data
         self.item_bag_data_manager = item_bag_data_manager
-        self.item_mass_data = item_mass_data
+        self.item_mass_data_manager = item_mass_data_manager
         self.event_data_manager = event_data_manager
         self.hiddenblock_data_manager = hiddenblock_data_manager
         self.luckymass_data = luckymass_data
@@ -201,12 +203,23 @@ class MapTab(tk.Frame):
         self.items_packs_notebook.add(item_mass_tab, text="Item Mass")
         self.item_mass = ItemMassEditor(
             item_mass_tab,
-            self.item_mass_data,
+            self.item_mass_data_manager,
             self.map_name,
             APP_WIDTH,
             general_items,
             map_items,
         )
+
+        item_mass_preview_tab = ttk.Frame(self.items_packs_notebook)
+        self.items_packs_notebook.add(item_mass_preview_tab, text="Item Mass (Preview)")
+        self.item_mass_panel = ItemMassPanel(
+            item_mass_preview_tab,
+            self.map_name,
+            self.item_mass_data_manager,
+            general_items,
+            map_items,
+        )
+        self.item_mass_panel.pack(fill="both", expand=True)
 
         self.events_tab = ttk.Frame(self.main_notebook)
         self.main_notebook.add(self.events_tab, text="Events")
@@ -450,7 +463,6 @@ class JamboreeMapEditor(tk.Tk):
         )
 
         self.item_shop_data = {}
-        self.item_mass_data = {}
         self.luckymass_data = {}
         self.unluckymass_data = {}
         self.koopamass_data = {}
@@ -458,6 +470,7 @@ class JamboreeMapEditor(tk.Tk):
         self.event_data_manager = EventDataManager()
         self.hiddenblock_data_manager = HiddenBlockDataManager()
         self.item_bag_data_manager = ItemBagDataManager()
+        self.item_mass_data_manager = ItemMassDataManager()
 
         style = ttk.Style(self)
         style.configure("TNotebook", tabposition="n")
@@ -475,7 +488,7 @@ class JamboreeMapEditor(tk.Tk):
                 map_name,
                 self.item_shop_data,
                 self.item_bag_data_manager,
-                self.item_mass_data,
+                self.item_mass_data_manager,
                 self.event_data_manager,
                 self.hiddenblock_data_manager,
                 self.luckymass_data,
@@ -490,8 +503,7 @@ class JamboreeMapEditor(tk.Tk):
                 "KoopaShop": {"P0": {}, "P1": {}, "P2": {}},
                 "KamekShop": {"P0": {}, "P1": {}, "P2": {}},
             }
-            self.item_mass_data[map_name] = []
-            
+
         self.general_frame = tk.Frame(self)
         self.general_frame.pack(side="right", padx=10, pady=10)
 

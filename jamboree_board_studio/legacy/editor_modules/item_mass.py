@@ -10,11 +10,44 @@ from jamboree_board_studio.core.items.item_mass import (
 )
 
 
+class ItemMassDataManager:
+    """Holds each map's live Item Mass entries and notifies registered views
+    (``ItemMassEditor``, and any future board-vocabulary panel) when they
+    change. Same listener protocol as ``ItemBagDataManager``/
+    ``HiddenBlockDataManager``/``EventDataManager``, minus cross-map
+    syncing: each map's Item Mass is independent.
+
+    Introduced for the same reason ItemBagDataManager was: before this,
+    ``ItemMassEditor`` kept no live list of its own -- its per-lot
+    listboxes *were* the only state, and ``save_items()`` reconstructed
+    entries by reading that display text back out. A second view over the
+    same data would have had no way to see edits made through the first.
+    """
+
+    def __init__(self):
+        self.item_mass_data = {}
+        self.listeners = []
+
+    def register_listener(self, listener):
+        self.listeners.append(listener)
+
+    def get_item_mass_data(self, map_name):
+        return self.item_mass_data.get(map_name, [])
+
+    def update_item_mass_data(self, map_name, item_mass_data):
+        self.item_mass_data[map_name] = item_mass_data
+        self.notify_listeners()
+
+    def notify_listeners(self):
+        for listener in self.listeners:
+            listener.refresh_data()
+
+
 class ItemMassEditor:
     def __init__(
-        self, parent, data_store, map_name, app_width, general_items, map_items
+        self, parent, data_manager, map_name, app_width, general_items, map_items
     ):
-        self.data_store = data_store
+        self.data_manager = data_manager
         self.map_name = map_name.replace(" ", "_")
         self.combined_items = map_items[self.map_name]["items"] + general_items
         self.lots = {}
@@ -33,6 +66,8 @@ class ItemMassEditor:
         num_columns = 7
         for index, lot_no in enumerate([0, 1, 2, 3, 5, 7, 8]):
             self.create_lot_column(lot_no, app_width, index, num_columns)
+
+        self.data_manager.register_listener(self)
 
     def create_lot_column(self, lot_no, app_width, index, num_columns):
         column_width = app_width // num_columns
@@ -77,65 +112,51 @@ class ItemMassEditor:
     def add_item(self, lot_no, entry):
         item = entry.get()
         if item:
-            listbox = self.lots[lot_no]["listbox"]
-            listbox.insert(tk.END, item)
+            current = list(self.data_manager.get_item_mass_data(self.map_name))
+            current.append({"Item": item, "No": lot_no})
+            self.data_manager.update_item_mass_data(self.map_name, current)
 
     def remove_item(self, lot_no):
         listbox = self.lots[lot_no]["listbox"]
-        selected_item = listbox.curselection()
-        if selected_item:
-            listbox.delete(selected_item)
+        selected_index = listbox.curselection()
+        if selected_index:
+            lot_entries = [
+                e
+                for e in self.data_manager.get_item_mass_data(self.map_name)
+                if e.get("No") == lot_no
+            ]
+            index_in_lot = selected_index[0]
+            if index_in_lot < len(lot_entries):
+                current = list(self.data_manager.get_item_mass_data(self.map_name))
+                current.remove(lot_entries[index_in_lot])
+                self.data_manager.update_item_mass_data(self.map_name, current)
 
     def load_items(self, data):
         items = data.get(self.map_name, [])
+        self.data_manager.update_item_mass_data(self.map_name, items)
 
-        for item in items:
-            item_name = item.get("Item", "")
-            lot_number = item.get("No", None)
-
-            if item_name and lot_number is not None:
-                lot_data = self.lots.get(lot_number)
-
-                if lot_data:
-                    listbox = lot_data.get("listbox")
-                    if listbox:
-                        display_text = f"{item_name}"
-                        listbox.insert(tk.END, display_text)
-                    else:
-                        print(f"Listbox for Lot {lot_number} is not available.")
-                else:
-                    print(f"Lot number {lot_number} does not exist in self.lots.")
-                    
     def randomize_items(self, probability=0.2):
-        for lot_no, widgets in self.lots.items():
-            listbox = widgets.get("listbox")
-            if listbox:
-                listbox.delete(0, tk.END)
-                for item in self.combined_items:
-                    if random.random() < probability:
-                        listbox.insert(tk.END, item)
-            else:
-                print(f"Listbox for Lot {lot_no} is not available")
-            
+        new_items = []
+        for lot_no in self.lots:
+            for item in self.combined_items:
+                if random.random() < probability:
+                    new_items.append({"Item": item, "No": lot_no})
+        self.data_manager.update_item_mass_data(self.map_name, new_items)
 
     def save_items(self):
-        items = []
+        return list(self.data_manager.get_item_mass_data(self.map_name))
 
-        for lot_no, widgets in self.lots.items():
-            listbox = widgets.get("listbox")
+    def refresh_data(self):
+        """Listener protocol expected by ItemMassDataManager.notify_listeners()."""
+        for lot_data in self.lots.values():
+            lot_data["listbox"].delete(0, tk.END)
 
-            if listbox:
-                for i in range(listbox.size()):
-                    item_text = listbox.get(i)
-                    item_data = item_text.split(" - ")
-                    item_name = item_data[0]
-                    items.append({"Item": item_name, "No": lot_no})
-
-            else:
-                print(f"Listbox for Lot {lot_no} is not available.")
-
-        self.data_store[self.map_name] = items
-        return items
+        for item in self.data_manager.get_item_mass_data(self.map_name):
+            lot_no = item.get("No")
+            lot_data = self.lots.get(lot_no)
+            if lot_data is None:
+                continue
+            lot_data["listbox"].insert(tk.END, item.get("Item", ""))
 
 
 def load_itemmass_mapdata(base_path, map_name):
