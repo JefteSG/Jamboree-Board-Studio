@@ -34,6 +34,9 @@ from editor_modules.map_layout import (
     load_map_layout_mapdata,
     save_map_layout_mapdata,
 )
+from jamboree_board_studio.core.board.parser import build_board_from_raw
+from jamboree_board_studio.ui.widgets.board_canvas import BoardCanvas
+from jamboree_board_studio.ui.widgets.inspector_panel import InspectorPanel
 
 APP_WIDTH = 1300
 APP_HEIGHT = 1000
@@ -240,6 +243,39 @@ class MapTab(tk.Frame):
             map_layout_settings[map_name]["reverse_y"],
         )
 
+        # Board Workspace (preview): renders the same MapNode/MapPath data
+        # through the new format-independent Board model instead of the
+        # raw dict the "Map Layout" tab above uses directly. It shares the
+        # same in-memory node/segment dicts (see build_board_from_raw), so
+        # edits made here are picked up by the existing "Save Map Data"
+        # button with no separate save path of its own.
+        self.board_workspace_tab = ttk.Frame(self.main_notebook)
+        self.main_notebook.add(
+            self.board_workspace_tab, text="Board Workspace (Preview)"
+        )
+        self.board_workspace_tab.columnconfigure(0, weight=4)
+        self.board_workspace_tab.columnconfigure(1, weight=1)
+        self.board_workspace_tab.rowconfigure(0, weight=1)
+
+        self.board = None
+        self.board_canvas = BoardCanvas(
+            self.board_workspace_tab, on_select=self._on_board_space_selected
+        )
+        self.board_canvas.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        self.inspector_panel = InspectorPanel(
+            self.board_workspace_tab, on_apply=self._on_board_space_applied
+        )
+        self.inspector_panel.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+    def _on_board_space_selected(self, space):
+        self.inspector_panel.show_space(self.board.id, space)
+
+    def _on_board_space_applied(self, space):
+        # Redraw so the canvas reflects the new type's color immediately;
+        # the underlying game_data was already updated by the inspector.
+        self.board_canvas.select_space(space.id)
+
     def load_data(self):
         self.item_shop_data = load_itemshop_mapdata(self.WORKSPACE_PATH, self.map_name)
         self.koopa_shop.load_shop_data("P0", self.item_shop_data)
@@ -279,6 +315,14 @@ class MapTab(tk.Frame):
             self.WORKSPACE_PATH, self.map_name
         )
         self.map_layout.load_data(self.map_layout_data)
+
+        self.board = build_board_from_raw(self.map_layout_data, self.map_name)
+        self.board_canvas.load_board(
+            self.board,
+            reverse_x=map_layout_settings[self.map_name]["reverse_x"],
+            reverse_y=map_layout_settings[self.map_name]["reverse_y"],
+        )
+        self.inspector_panel.clear()
 
     def randomize_data(self):
         self.koopa_shop.randomize_shop_data("P0")

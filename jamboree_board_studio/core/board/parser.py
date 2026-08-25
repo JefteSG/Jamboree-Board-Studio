@@ -59,7 +59,7 @@ def load_raw_map_layout(workspace_path: str, map_name: str) -> dict:
 def parse_board(
     workspace_path: str, map_name: str, board_name: str | None = None
 ) -> Board:
-    """Parse a single board's spaces and connections from a workspace.
+    """Parse a single board's spaces and connections from a workspace on disk.
 
     Space positions are intentionally left as ``None`` (see
     ``BoardSpace.position``): no confirmed, authoritative per-space
@@ -72,7 +72,24 @@ def parse_board(
         raise BoardParseError(f"Unknown map name: {map_name!r}")
 
     raw = load_raw_map_layout(workspace_path, map_name)
+    return build_board_from_raw(raw, map_name, board_name=board_name)
 
+
+def build_board_from_raw(
+    raw: dict, map_name: str, board_name: str | None = None
+) -> Board:
+    """Build a Board from an already-loaded ``{"MapNode": [...], "MapPath": [...]}`` dict.
+
+    This is the pure transform used by ``parse_board`` after reading the
+    files from disk, but it is also the entry point the UI layer uses to
+    build a ``Board`` directly from data the legacy editor already has in
+    memory (``editor_modules.map_layout.MapLayoutEditor.map_layout_data``),
+    instead of re-reading files. That matters for round-trip safety: it
+    keeps a single in-memory copy of each node/segment dict, so an edit
+    made through the new ``Board``-based UI is the same object the legacy
+    save path serializes — there is no second copy that could go stale or
+    be silently overwritten by the other on save.
+    """
     spaces = [
         BoardSpace(
             id=str(node["NodeNo"]),
