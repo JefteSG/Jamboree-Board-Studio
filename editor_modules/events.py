@@ -1,8 +1,13 @@
-import json
-import os
 import random
 import tkinter as tk
 from tkinter import ttk
+
+from jamboree_board_studio.core.events import (
+    EventEntry,
+    EventParseError,
+    parse_events,
+    serialize_events,
+)
 
 result_options = {
     "LuckyMass": [
@@ -319,46 +324,35 @@ class EventEditor:
             print("No item selected for removal.")
 
 
-def process_event_data(event_data):
-    results = []
-    for entry in event_data:
-        if all(key in entry for key in ["Rate0", "Rate1", "Rate2", "Rate3", "Result"]):
-            results.append(entry)
-        else:
-            continue
-    return results
-
-
 def load_event_mapdata(base_path, map_name, data_type):
-    event_data = {}
-    raw_event_data = []
-    if data_type == "KoopaMass" and map_name != "Map06":
-        map_name = "Map00"
-    file_name = os.path.join(
-        "bd~bd00.nx", "bd", "bd00", "data", f"bd00_{data_type}_{map_name}.json"
-    )
-    file_path = os.path.join(base_path, file_name)
+    """Load LuckyMass/UnluckyMass/KoopaMass entries as plain dicts.
 
+    Delegates to jamboree_board_studio.core.events, which does the
+    actual parsing (including the KoopaMass -> shared Map00 file
+    remapping); this wrapper just unwraps back to the plain
+    list-of-dicts shape this module's UI code expects, and keeps this
+    function's original behavior of returning [] (with a printed
+    message) rather than raising when the file is missing or invalid.
+    """
     try:
-        with open(file_path, "r", encoding="utf-8-sig") as f:
-            data = json.load(f)
-            raw_event_data = data.get(map_name, [])
-    except FileNotFoundError:
-        print(f"File not found: {file_name}")
-    except json.JSONDecodeError:
-        print(f"Error occurred while reading file: {file_name}")
-
-    event_data = process_event_data(raw_event_data)
-    return event_data
+        entries = parse_events(base_path, map_name, data_type)
+    except EventParseError as error:
+        print(error)
+        return []
+    return [entry.game_data for entry in entries]
 
 
 def save_event_mapdata(base_path, event_data, map_name, data_type):
-    if data_type == "KoopaMass" and map_name != "Map06":
-        map_name = "Map00"
-    file_name = os.path.join(
-        "bd~bd00.nx", "bd", "bd00", "data", f"bd00_{data_type}_{map_name}.json"
-    )
-    file_path = os.path.join(base_path, file_name)
-    with open(file_path, "w", encoding="utf-8-sig") as f:
-        file_data = {map_name: event_data}
-        json.dump(file_data, f, indent=4)
+    """Save event entries (plain dicts) via the same adapter used to load them."""
+    entries = [
+        EventEntry(
+            rate0=d["Rate0"],
+            rate1=d["Rate1"],
+            rate2=d["Rate2"],
+            rate3=d["Rate3"],
+            result=d["Result"],
+            game_data=d,
+        )
+        for d in event_data
+    ]
+    serialize_events(entries, base_path, map_name, data_type)

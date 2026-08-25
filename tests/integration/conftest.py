@@ -137,7 +137,10 @@ def build_full_workspace(workspace_path: str) -> None:
     )
     _write_json(
         _bd00_path(workspace_path, "bd00_KoopaMass_Map06.json"),
-        {"Map06": [_full_rate_entry("Rob10Coin")]},
+        # Deliberately a different Result than the shared Map00 file
+        # above, so tests can tell "Map06 read its own file" apart from
+        # "Map06 accidentally read the shared file too".
+        {"Map06": [_full_rate_entry("Get1000Coin")]},
     )
     _write_json(
         _bd00_path(workspace_path, "bd00_HiddenBlock.json"),
