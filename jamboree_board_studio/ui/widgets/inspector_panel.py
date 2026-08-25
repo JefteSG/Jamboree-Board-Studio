@@ -21,7 +21,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from editor_modules.map_layout import mass_attr_list
-from jamboree_board_studio.core.board.models import BoardSpace
+from jamboree_board_studio.core.board.models import BoardConnection, BoardSpace
 
 # Mirrors editor_modules.map_layout.MapLayoutEditor.on_click's own safety
 # rule: on Map07, NodeNo 59-66 are rewritten by the game itself (Wiggler
@@ -54,7 +54,8 @@ class InspectorPanel(ttk.Frame):
 
         id_frame = ttk.Frame(self)
         id_frame.pack(fill="x", padx=8, pady=2)
-        ttk.Label(id_frame, text="ID").pack(side="left")
+        self.id_label = ttk.Label(id_frame, text="ID")
+        self.id_label.pack(side="left")
         self.id_value = ttk.Label(id_frame, text="-")
         self.id_value.pack(side="right")
 
@@ -85,7 +86,8 @@ class InspectorPanel(ttk.Frame):
 
     def clear(self) -> None:
         self.space = None
-        self.title_label.config(text="No space selected")
+        self.title_label.config(text="Nothing selected")
+        self.id_label.config(text="ID")
         self.id_value.config(text="-")
         self.type_combobox.config(state="disabled")
         self.type_combobox.set("")
@@ -97,6 +99,7 @@ class InspectorPanel(ttk.Frame):
         self.board_id = board_id
         self.space = space
         self.title_label.config(text=f"Space #{space.id}")
+        self.id_label.config(text="ID")
         self.id_value.config(text=space.id)
 
         reserved = _is_reserved(board_id, space)
@@ -125,6 +128,27 @@ class InspectorPanel(ttk.Frame):
                 self.type_note.config(text="Type is unknown/empty for this space.")
 
         self._set_raw_text(json.dumps(space.game_data, indent=2, ensure_ascii=False))
+
+    def show_connection(self, connection: BoardConnection) -> None:
+        """Show a selected path/connection's known fields.
+
+        Read-only: path editing isn't supported yet (see
+        docs/research/board-format.md — Bezier segment meaning beyond
+        the first control point is still unconfirmed), so this only
+        displays what's known plus the raw segment data, the same way
+        an unsupported space type is shown.
+        """
+        self.space = None  # not a space: _apply() must stay a no-op
+        self.title_label.config(text=f"Path #{connection.source} -> #{connection.target}")
+        self.id_label.config(text="Source -> Target")
+        self.id_value.config(text=f"{connection.source} -> {connection.target}")
+
+        self.type_combobox.config(state="disabled")
+        self.type_combobox.set("")
+        self.type_note.config(text="Connections aren't editable yet.")
+        self.apply_button.config(state="disabled")
+
+        self._set_raw_text(json.dumps(connection.game_data, indent=2, ensure_ascii=False))
 
     def _set_raw_text(self, text: str) -> None:
         self.raw_text.config(state="normal")

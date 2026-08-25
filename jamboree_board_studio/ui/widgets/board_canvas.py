@@ -28,22 +28,34 @@ from matplotlib.patches import Circle, FancyArrowPatch, Polygon
 
 from editor_modules.map_layout import mass_attr_colors
 from jamboree_board_studio.core.board.layout import apply_visual_positions
-from jamboree_board_studio.core.board.models import Board, BoardSpace
+from jamboree_board_studio.core.board.models import Board, BoardConnection, BoardSpace
 
 _DEFAULT_COLOR = "gray"
 _SELECTED_EDGE_COLOR = "white"
 _SELECTED_LINEWIDTH = 2.5
+_CONNECTION_COLOR = "black"
+_SELECTED_CONNECTION_COLOR = "orange"
+_SELECTED_CONNECTION_WIDTH = 2.5
 
 
 class BoardCanvas(ttk.Frame):
-    """Renders a ``Board``'s spaces/connections; reports clicks via ``on_select``."""
+    """Renders a ``Board``'s spaces/connections.
 
-    def __init__(self, parent, on_select=None):
+    Reports a space click via ``on_select`` and a connection (path arrow)
+    click via ``on_select_connection`` — mirrors the two selection modes
+    the legacy Map Layout viewer already had (its status line switches
+    between "Node: N | ..." and "Path: A-B | ...").
+    """
+
+    def __init__(self, parent, on_select=None, on_select_connection=None):
         super().__init__(parent)
         self.on_select = on_select
+        self.on_select_connection = on_select_connection
         self.board: Board | None = None
         self.selected_space_id: str | None = None
+        self.selected_connection_key: tuple[str, str] | None = None
         self._node_patches: dict[str, object] = {}
+        self._arrow_patches: list[dict] = []
 
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
@@ -65,17 +77,26 @@ class BoardCanvas(ttk.Frame):
         self.board = board
         apply_visual_positions(board, reverse_x=reverse_x, reverse_y=reverse_y)
         self.selected_space_id = None
+        self.selected_connection_key = None
         self._redraw(fit_view=True)
 
     def select_space(self, space_id: str | None) -> None:
         """Programmatically select (and redraw to highlight) a space, without firing on_select."""
         self.selected_space_id = space_id
+        self.selected_connection_key = None
+        self._redraw(fit_view=False)
+
+    def select_connection(self, source: str | None, target: str | None) -> None:
+        """Programmatically select (and redraw to highlight) a connection, without firing a callback."""
+        self.selected_connection_key = (source, target) if source and target else None
+        self.selected_space_id = None
         self._redraw(fit_view=False)
 
     def _redraw(self, fit_view: bool) -> None:
         prev_xlim, prev_ylim = self.ax.get_xlim(), self.ax.get_ylim()
         self.ax.clear()
         self._node_patches = {}
+        self._arrow_patches = []
 
         if not self.board:
             self.canvas.draw()
@@ -91,17 +112,20 @@ class BoardCanvas(ttk.Frame):
                 continue
             if source.visual_position is None or target.visual_position is None:
                 continue
+            is_selected = (connection.source, connection.target) == self.selected_connection_key
             arrow = FancyArrowPatch(
                 source.visual_position,
                 target.visual_position,
                 arrowstyle="->",
                 mutation_scale=15,
-                color="black",
+                color=_SELECTED_CONNECTION_COLOR if is_selected else _CONNECTION_COLOR,
+                linewidth=_SELECTED_CONNECTION_WIDTH if is_selected else 1.0,
             )
             arrow.set_path_effects(
                 [patheffects.withStroke(linewidth=2, alpha=0, foreground="black")]
             )
             self.ax.add_patch(arrow)
+            self._arrow_patches.append({"patch": arrow, "connection": connection})
 
         for space in positioned:
             patch = self._make_patch(space)
@@ -173,12 +197,24 @@ class BoardCanvas(ttk.Frame):
     def _on_click(self, event) -> None:
         if event.inaxes != self.ax or not self.board:
             return
+
         for space_id, patch in self._node_patches.items():
             if patch.contains(event)[0]:
                 self.selected_space_id = space_id
+                self.selected_connection_key = None
                 self._redraw(fit_view=False)
                 if self.on_select:
                     space = self.board.get_space(space_id)
                     if space:
                         self.on_select(space)
+                return
+
+        for entry in self._arrow_patches:
+            if entry["patch"].contains(event)[0]:
+                connection: BoardConnection = entry["connection"]
+                self.selected_connection_key = (connection.source, connection.target)
+                self.selected_space_id = None
+                self._redraw(fit_view=False)
+                if self.on_select_connection:
+                    self.on_select_connection(connection)
                 return

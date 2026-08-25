@@ -266,7 +266,9 @@ class MapTab(tk.Frame):
         self.space_list.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
         self.board_canvas = BoardCanvas(
-            self.board_workspace_tab, on_select=self._on_board_space_selected
+            self.board_workspace_tab,
+            on_select=self._on_board_space_selected,
+            on_select_connection=self._on_board_connection_selected,
         )
         self.board_canvas.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
@@ -283,6 +285,14 @@ class MapTab(tk.Frame):
         self.inspector_panel.show_space(self.board.id, space)
         self.board_canvas.select_space(space.id)
         self.space_list.select_space(space.id)
+
+    def _on_board_connection_selected(self, connection):
+        # A path arrow was clicked on the canvas: show it read-only in
+        # the inspector, and clear the space list's highlight since
+        # nothing there corresponds to a connection.
+        self.inspector_panel.show_connection(connection)
+        self.board_canvas.select_connection(connection.source, connection.target)
+        self.space_list.select_space(None)
 
     def _on_board_space_applied(self, space):
         # Refresh the canvas (new type's color) and the list row (new type

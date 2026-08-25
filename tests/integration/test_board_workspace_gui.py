@@ -57,6 +57,34 @@ def test_selecting_a_space_updates_inspector_and_canvas(tk_app):
     assert first_tab.board_canvas.selected_space_id == "0"
 
 
+def test_selecting_a_connection_shows_it_read_only_and_clears_space_selection(tk_app):
+    app = tk_app
+    first_tab = app.notebook.nametowidget(app.notebook.tabs()[0])
+    board = first_tab.board
+
+    # Select a space first, so we can verify selecting a connection
+    # afterwards actually clears the previous space selection.
+    first_tab._on_board_space_selected(board.get_space("0"))
+    app.update()
+
+    connection = board.connections[0]
+    first_tab._on_board_connection_selected(connection)
+    app.update()
+
+    assert first_tab.inspector_panel.space is None
+    assert (
+        connection.source in first_tab.inspector_panel.id_value["text"]
+        and connection.target in first_tab.inspector_panel.id_value["text"]
+    )
+    assert str(first_tab.inspector_panel.apply_button["state"]) == "disabled"
+    assert first_tab.board_canvas.selected_connection_key == (
+        connection.source,
+        connection.target,
+    )
+    assert first_tab.board_canvas.selected_space_id is None
+    assert first_tab.space_list.tree.selection() == ()
+
+
 def test_selecting_via_the_space_list_stays_in_sync_and_does_not_hang(tk_app):
     # Regression test for the <<TreeviewSelect>> race described in the
     # module docstring: this used to hang indefinitely the first time a
