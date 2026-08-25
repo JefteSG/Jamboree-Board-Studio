@@ -1,8 +1,13 @@
-import json
-import os
 import random
 import tkinter as tk
 from tkinter import ttk
+
+from jamboree_board_studio.core.items.item_mass import (
+    ItemMassEntry,
+    ItemMassParseError,
+    parse_item_mass,
+    serialize_item_mass,
+)
 
 
 class ItemMassEditor:
@@ -133,43 +138,26 @@ class ItemMassEditor:
         return items
 
 
-def process_itemmass_data(item_data):
-    results = []
-    for entry in item_data:
-        if all(key in entry for key in ["Item", "No"]):
-            results.append(entry)
-        else:
-            continue
-    return results
-
-
 def load_itemmass_mapdata(base_path, map_name):
-    item_mass_data = {}
-    item_mass_raw_data = []
-    file_name = os.path.join(
-        "bd~bd00.nx", "bd", "bd00", "data", f"bd00_ItemMass_{map_name}.json"
-    )
-    file_path = os.path.join(base_path, file_name)
-    try:
-        with open(file_path, "r", encoding="utf-8-sig") as f:
-            data = json.load(f)
-            item_mass_raw_data = data.get(map_name)
-    except FileNotFoundError:
-        print(f"File not found : {file_name}")
-    except json.JSONDecodeError:
-        print(f"Error occurred while reading file : {file_name}")
+    """Load bd00_ItemMass_<map>.json's entries as plain dicts, keyed by map_name.
 
-    item_mass_data[map_name] = process_itemmass_data(item_mass_raw_data)
-    return item_mass_data
+    Delegates to jamboree_board_studio.core.items.item_mass; this
+    wrapper unwraps back to the {map_name: [...]} shape this module's UI
+    code expects, and keeps this function's original behavior of
+    returning an empty list (with a printed message) rather than raising
+    when the file is missing or invalid.
+    """
+    try:
+        entries = parse_item_mass(base_path, map_name)
+    except ItemMassParseError as error:
+        print(error)
+        entries = []
+    return {map_name: [entry.game_data for entry in entries]}
 
 
 def save_itemmass_mapdata(base_path, item_mass_data, map_name):
-    file_name = os.path.join(
-        "bd~bd00.nx", "bd", "bd00", "data", f"bd00_ItemMass_{map_name}.json"
-    )
-    file_path = os.path.join(base_path, file_name)
-    with open(file_path, "w", encoding="utf-8-sig") as f:
-        file_data = {}
-        file_data[f"{map_name}"] = []
-        file_data[f"{map_name}"] = item_mass_data
-        json.dump(file_data, f, indent=4)
+    """Save Item Mass entries (plain dicts) via the same adapter used to load them."""
+    entries = [
+        ItemMassEntry(item=d["Item"], lot=d["No"], game_data=d) for d in item_mass_data
+    ]
+    serialize_item_mass(entries, base_path, map_name)

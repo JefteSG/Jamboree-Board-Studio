@@ -97,8 +97,14 @@ def build_full_workspace(workspace_path: str) -> None:
     """
     for i in range(1, 8):
         xx = f"Map{i:02d}"
-        _write_json(_bd00_path(workspace_path, f"bd00_ItemBag_{xx}.json"), {xx: []})
-        _write_json(_bd00_path(workspace_path, f"bd00_ItemMass_{xx}.json"), {xx: []})
+        _write_json(
+            _bd00_path(workspace_path, f"bd00_ItemBag_{xx}.json"),
+            {xx: [{"Item": "Kinoko", "Phase": 0, "Unique": 1}, {"Item": "Stone", "Phase": 1, "Unique": 0}]},
+        )
+        _write_json(
+            _bd00_path(workspace_path, f"bd00_ItemMass_{xx}.json"),
+            {xx: [{"Item": "Kinoko", "No": 0}, {"Item": "GoldPipe", "No": 1}]},
+        )
         _write_json(_bd00_path(workspace_path, f"bd00_ItemShop_{xx}.json"), {xx: []})
         _write_json(
             _bd00_path(workspace_path, f"bd00_LuckyMass_{xx}.json"),
@@ -125,7 +131,10 @@ def build_full_workspace(workspace_path: str) -> None:
         _bd00_path(workspace_path, "bd00_KoopaMass_Map06.json"),
         {"Map06": [_full_rate_entry("Rob10Coin")]},
     )
-    _write_json(_bd00_path(workspace_path, "bd00_HiddenBlock.json"), {"HiddenBlock": []})
+    _write_json(
+        _bd00_path(workspace_path, "bd00_HiddenBlock.json"),
+        {"HiddenBlock": [{"No": 0, "Result": -1, "Rate": 10}, {"No": 1, "Result": 5, "Rate": 20}]},
+    )
     _write_json(
         _bd00_path(workspace_path, "bd00_PlayerMove.json"),
         {"PlayerMove": [{"MaxSpeed": 10, "CircuitSpeed": 10, "MachSpeed": 10}]},

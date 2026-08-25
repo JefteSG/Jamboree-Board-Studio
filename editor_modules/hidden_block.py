@@ -1,8 +1,13 @@
-import os
-import json
 import random
 import tkinter as tk
 from tkinter import ttk
+
+from jamboree_board_studio.core.items.hidden_block import (
+    HiddenBlockEntry,
+    HiddenBlockParseError,
+    parse_hidden_blocks,
+    serialize_hidden_blocks,
+)
 
 
 LOTS = [
@@ -270,46 +275,31 @@ class HiddenBlockEditor:
         return blocks
 
 
-def process_hiddenblock_data(hiddenblock_data):
-    results = []
-    for entry in hiddenblock_data:
-        if all(key in entry for key in ["Result", "No", "Rate"]):
-            results.append(entry)
-        else:
-            continue
-    return results
-
-
 def load_hiddenblock_mapdata(base_path, map_name):
-    hiddenblock_data = []
-    file_name = os.path.join(
-        "bd~bd00.nx", "bd", "bd00", "data", "bd00_HiddenBlock.json"
-    )
-    file_path = os.path.join(base_path, file_name)
+    """Load bd00_HiddenBlock.json's entries as plain dicts.
 
+    Delegates to jamboree_board_studio.core.items.hidden_block, which
+    does the actual parsing/filtering; this wrapper just unwraps back to
+    the plain list-of-dicts shape this module's UI code expects, and
+    keeps this function's original behavior of returning [] (with a
+    printed message) rather than raising when the file is missing or
+    invalid, so callers here don't need to change.
+    """
     try:
-        with open(file_path, "r", encoding="utf-8-sig") as f:
-            data = json.load(f)
-            hiddenblock_data = data.get("HiddenBlock", [])
-    except FileNotFoundError:
-        print(f"File not found: {file_name}")
-    except json.JSONDecodeError:
-        print(f"Error occurred while reading file: {file_name}")
-
-    hiddenblock_data = process_hiddenblock_data(hiddenblock_data)
-    return hiddenblock_data
+        entries = parse_hidden_blocks(base_path)
+    except HiddenBlockParseError as error:
+        print(error)
+        return []
+    return [entry.game_data for entry in entries]
 
 
 def save_hiddenblock_mapdata(base_path, hiddenblock_data, map_name):
-    file_name = os.path.join(
-        "bd~bd00.nx", "bd", "bd00", "data", "bd00_HiddenBlock.json"
-    )
-    file_path = os.path.join(base_path, file_name)
+    """Save hidden block entries (plain dicts) via the same adapter used to load them."""
+    entries = [
+        HiddenBlockEntry(lot=d["No"], reward=d["Result"], rate=d["Rate"], game_data=d)
+        for d in hiddenblock_data
+    ]
     try:
-        with open(file_path, "w", encoding="utf-8-sig") as f:
-            file_data = {"HiddenBlock": hiddenblock_data}
-            json.dump(file_data, f, indent=4)
-    except FileNotFoundError:
-        print(f"File not found: {file_name}")
-    except json.JSONDecodeError:
-        print(f"Error occurred while writing to file: {file_name}")
+        serialize_hidden_blocks(entries, base_path)
+    except OSError as error:
+        print(f"Error occurred while writing hidden block data: {error}")
