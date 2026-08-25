@@ -125,14 +125,43 @@ Use: pip install -r requirements.txt
 
 ## Architecture & Development
 
-The original editor's logic (`main.py`, `editor.py`, `bea_archive_manager.py`,
-`editor_modules/`) is preserved as-is and keeps working unchanged. A new,
-format-independent domain layer is being introduced gradually under
-`jamboree_board_studio/`, starting with an internal `Board` model
-(`jamboree_board_studio/core/board/`) and adapters that convert to/from the
-existing game JSON without inventing data the format doesn't confirm — see
+`main.py`, `editor.py`, and `bea_archive_manager.py` stay at the repository
+root — they're the stable entry points a build (PyInstaller) and the OS
+launch directly. Everything else lives under `jamboree_board_studio/`:
+
+```
+jamboree_board_studio/
+    core/            format-independent models + adapters (no Tkinter)
+        board/         Board/BoardSpace/BoardConnection: models, parser,
+                        serializer, validator, and the visual-layout
+                        inference used by the canvas below
+        items/         Hidden Block, Item Bag, Item Mass, Item Shop
+        events.py      Lucky/Unlucky/Bowser(Koopa) Mass events
+    services/        pure orchestration pulled out of main.py (workspace
+                     creation/listing, checksum, export diff/repack
+                     instructions) — testable headlessly, unlike main.py
+    ui/              the new Board Workspace tab (canvas, inspector,
+                     spaces list) built on top of core/board
+    legacy/
+        editor_modules/  the original per-feature Tkinter editors
+                          (shops, items, events, hidden blocks, map
+                          layout). Their load_*/save_* functions now
+                          delegate to core's parsers/serializers; the
+                          widgets themselves are unmodified.
+```
+
+Every format `core/` understands has a `parse_*`/`serialize_*` pair that
+never invents data — unknown fields round-trip through each entry's
+`game_data` rather than being dropped. See
 [`docs/research/board-format.md`](docs/research/board-format.md) for what is
-currently known, probable, or still unknown about the board format.
+currently known, probable, or still unknown about the board format
+specifically (positions, paths).
+
+Only the Board Workspace tab currently has a from-scratch UI in board
+vocabulary (canvas + properties panel); Shops, Items, and Events still use
+their original `legacy/editor_modules/` screens — `core`'s adapters make
+that migration possible without rewriting them all in one pass, but it
+hasn't happened yet.
 
 ### Running the tests
 
@@ -141,14 +170,19 @@ pip install -r requirements-dev.txt
 python -m pytest tests/
 ```
 
-`tests/core/` covers the domain layer (`Board` model, parser, serializer,
-round-trip, validation) and has no Tkinter/pythonnet dependency, so it runs
-headlessly anywhere. `tests/integration/` drives the real Tkinter editor
-(the Board Workspace tab specifically) and needs a working Tk display — it
-skips itself automatically (rather than failing) when Tkinter isn't
-installed or no display is available, e.g. `xvfb-run -a python -m pytest
-tests/` on headless Linux, or just `python -m pytest tests/` on Windows/macOS
-or any desktop with a display.
+`tests/core/` and `tests/services/` cover the domain/service layer (every
+`core/` format's parser/serializer round-trip, validation, and the pure
+pieces of `main.py`) and have no Tkinter/pythonnet dependency, so they run
+headlessly anywhere. `tests/integration/` drives the real Tkinter editor —
+the Board Workspace tab, and the legacy shop/item/event/hidden-block widgets
+now that their file IO goes through `core`'s adapters — and needs a working
+Tk display. It skips itself automatically (rather than failing) when
+Tkinter isn't installed or no display is available, e.g. `xvfb-run -a python
+-m pytest tests/` on headless Linux, or just `python -m pytest tests/` on
+Windows/macOS or any desktop with a display. (`main.py` itself isn't covered
+by any test here — it unconditionally initializes a pythonnet/.NET runtime
+at import time, which this project's CI/sandbox environments don't have; it
+can only be verified by actually running it.)
 
 ---
 
