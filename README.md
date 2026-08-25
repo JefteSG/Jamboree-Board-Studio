@@ -136,13 +136,19 @@ currently known, probable, or still unknown about the board format.
 
 ### Running the tests
 
-The new domain layer has no Tkinter/pythonnet dependency and can be tested
-headlessly:
-
 ```
 pip install -r requirements-dev.txt
 python -m pytest tests/
 ```
+
+`tests/core/` covers the domain layer (`Board` model, parser, serializer,
+round-trip, validation) and has no Tkinter/pythonnet dependency, so it runs
+headlessly anywhere. `tests/integration/` drives the real Tkinter editor
+(the Board Workspace tab specifically) and needs a working Tk display — it
+skips itself automatically (rather than failing) when Tkinter isn't
+installed or no display is available, e.g. `xvfb-run -a python -m pytest
+tests/` on headless Linux, or just `python -m pytest tests/` on Windows/macOS
+or any desktop with a display.
 
 ---
 

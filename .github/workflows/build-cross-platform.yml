@@ -23,7 +23,13 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install pyinstaller
-    
+
+    - name: Install test dependencies
+      run: pip install pytest
+
+    - name: Run tests
+      run: python -m pytest tests/ -v
+
     - name: Build Windows Console
       run: pyinstaller --noconfirm --onefile --console --name "SMPJ Map Editor (Console)" main.py
     
