@@ -38,6 +38,7 @@ from jamboree_board_studio.legacy.editor_modules.map_layout import (
 from jamboree_board_studio.core.board.parser import build_board_from_raw
 from jamboree_board_studio.ui.widgets.board_canvas import BoardCanvas
 from jamboree_board_studio.ui.widgets.hidden_block_panel import HiddenBlockPanel
+from jamboree_board_studio.ui.widgets.item_bag_panel import ItemBagPanel
 from jamboree_board_studio.ui.widgets.inspector_panel import InspectorPanel
 from jamboree_board_studio.ui.widgets.space_list_panel import SpaceListPanel
 
@@ -184,6 +185,17 @@ class MapTab(tk.Frame):
             general_items,
             map_items,
         )
+
+        item_bag_preview_tab = ttk.Frame(self.items_packs_notebook)
+        self.items_packs_notebook.add(item_bag_preview_tab, text="Item Bag (Preview)")
+        self.item_bag_panel = ItemBagPanel(
+            item_bag_preview_tab,
+            self.map_name,
+            self.item_bag_data_manager,
+            general_items,
+            map_items,
+        )
+        self.item_bag_panel.pack(fill="both", expand=True)
 
         item_mass_tab = ttk.Frame(self.items_packs_notebook)
         self.items_packs_notebook.add(item_mass_tab, text="Item Mass")

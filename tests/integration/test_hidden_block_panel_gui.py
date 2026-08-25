@@ -14,6 +14,13 @@ not just that the new panel renders.
 import json
 import os
 
+import pytest
+
+# hidden_block.py imports tkinter at module scope; guard this import the
+# same way conftest.py's tk_app fixture does, so this file still collects
+# (and its tests still skip cleanly via tk_app) on a Python without
+# Tkinter installed, instead of failing collection for the whole suite.
+pytest.importorskip("tkinter")
 from jamboree_board_studio.legacy.editor_modules.hidden_block import get_lot_name_by_data
 
 
