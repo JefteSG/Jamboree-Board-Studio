@@ -36,6 +36,7 @@ from jamboree_board_studio.legacy.editor_modules.map_layout import (
 )
 from jamboree_board_studio.core.board.parser import build_board_from_raw
 from jamboree_board_studio.ui.widgets.board_canvas import BoardCanvas
+from jamboree_board_studio.ui.widgets.hidden_block_panel import HiddenBlockPanel
 from jamboree_board_studio.ui.widgets.inspector_panel import InspectorPanel
 from jamboree_board_studio.ui.widgets.space_list_panel import SpaceListPanel
 
@@ -233,6 +234,17 @@ class MapTab(tk.Frame):
             APP_WIDTH,
             self.hiddenblock_data_manager,
         )
+
+        self.hidden_block_preview_tab = ttk.Frame(self.main_notebook)
+        self.main_notebook.add(
+            self.hidden_block_preview_tab, text="Hidden Block (Preview)"
+        )
+        self.hidden_block_panel = HiddenBlockPanel(
+            self.hidden_block_preview_tab,
+            self.map_name,
+            self.hiddenblock_data_manager,
+        )
+        self.hidden_block_panel.pack(fill="both", expand=True)
 
         self.map_layout_tab = ttk.Frame(self.main_notebook)
         self.main_notebook.add(self.map_layout_tab, text="Map Layout")
