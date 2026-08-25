@@ -9,6 +9,7 @@ from jamboree_board_studio.legacy.editor_modules.hidden_block import (
     save_hiddenblock_mapdata,
 )
 from jamboree_board_studio.legacy.editor_modules.item_bag import (
+    ItemBagDataManager,
     ItemBagEditor,
     load_itembag_mapdata,
     save_itembag_mapdata,
@@ -114,7 +115,7 @@ class MapTab(tk.Frame):
         parent,
         map_name,
         item_shop_data,
-        item_bag_data,
+        item_bag_data_manager,
         item_mass_data,
         event_data_manager,
         hiddenblock_data_manager,
@@ -127,7 +128,7 @@ class MapTab(tk.Frame):
         super().__init__(parent)
         self.WORKSPACE_PATH = WORKSPACE_PATH
         self.item_shop_data = item_shop_data
-        self.item_bag_data = item_bag_data
+        self.item_bag_data_manager = item_bag_data_manager
         self.item_mass_data = item_mass_data
         self.event_data_manager = event_data_manager
         self.hiddenblock_data_manager = hiddenblock_data_manager
@@ -177,7 +178,7 @@ class MapTab(tk.Frame):
         self.items_packs_notebook.add(item_bag_tab, text="Item Bag")
         self.item_bag = ItemBagEditor(
             item_bag_tab,
-            self.item_bag_data,
+            self.item_bag_data_manager,
             self.map_name,
             APP_WIDTH,
             general_items,
@@ -437,7 +438,6 @@ class JamboreeMapEditor(tk.Tk):
         )
 
         self.item_shop_data = {}
-        self.item_bag_data = {}
         self.item_mass_data = {}
         self.luckymass_data = {}
         self.unluckymass_data = {}
@@ -445,6 +445,7 @@ class JamboreeMapEditor(tk.Tk):
         self.hiddenblock_data = {}
         self.event_data_manager = EventDataManager()
         self.hiddenblock_data_manager = HiddenBlockDataManager()
+        self.item_bag_data_manager = ItemBagDataManager()
 
         style = ttk.Style(self)
         style.configure("TNotebook", tabposition="n")
@@ -461,7 +462,7 @@ class JamboreeMapEditor(tk.Tk):
                 self.notebook,
                 map_name,
                 self.item_shop_data,
-                self.item_bag_data,
+                self.item_bag_data_manager,
                 self.item_mass_data,
                 self.event_data_manager,
                 self.hiddenblock_data_manager,
@@ -477,7 +478,6 @@ class JamboreeMapEditor(tk.Tk):
                 "KoopaShop": {"P0": {}, "P1": {}, "P2": {}},
                 "KamekShop": {"P0": {}, "P1": {}, "P2": {}},
             }
-            self.item_bag_data[map_name] = []
             self.item_mass_data[map_name] = []
             
         self.general_frame = tk.Frame(self)

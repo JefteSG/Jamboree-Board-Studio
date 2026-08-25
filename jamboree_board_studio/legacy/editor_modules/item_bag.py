@@ -10,11 +10,45 @@ from jamboree_board_studio.core.items.item_bag import (
 )
 
 
+class ItemBagDataManager:
+    """Holds each map's live Item Bag entries and notifies registered views
+    (``ItemBagEditor``, and any future board-vocabulary panel) when they
+    change. Same listener protocol as ``HiddenBlockDataManager``/
+    ``EventDataManager``, minus cross-map syncing: each map's Item Bag is
+    independent, there is no equivalent of KoopaMass/Hidden Block sharing
+    here.
+
+    Introduced so a second view over this data (e.g. a future preview
+    panel) can't silently disagree with ``ItemBagEditor`` about what the
+    current entries are — before this, ``ItemBagEditor`` kept no live
+    list of its own at all; its listbox display *was* the only state, and
+    ``save_items()`` reconstructed entries by parsing that display text.
+    """
+
+    def __init__(self):
+        self.item_bag_data = {}
+        self.listeners = []
+
+    def register_listener(self, listener):
+        self.listeners.append(listener)
+
+    def get_item_bag_data(self, map_name):
+        return self.item_bag_data.get(map_name, [])
+
+    def update_item_bag_data(self, map_name, item_bag_data):
+        self.item_bag_data[map_name] = item_bag_data
+        self.notify_listeners()
+
+    def notify_listeners(self):
+        for listener in self.listeners:
+            listener.refresh_data()
+
+
 class ItemBagEditor:
     def __init__(
-        self, parent, data_store, map_name, app_width, general_items, map_items
+        self, parent, data_manager, map_name, app_width, general_items, map_items
     ):
-        self.data_store = data_store
+        self.data_manager = data_manager
         self.map_name = map_name.replace(" ", "_")
 
         map_specific_items = map_items[self.map_name]["items"]
@@ -87,70 +121,75 @@ class ItemBagEditor:
         )
         self.remove_button.pack(pady=5)
 
+        self.data_manager.register_listener(self)
+
     def add_item(self):
         item = self.entry.get()
         if item:
             phase_name = self.phase_combobox.get()
             phase_idx = self.phase_map.get(phase_name)
+            unique = bool(self.unique_var.get())
 
-            unique = "Unique" if self.unique_var.get() else "Not Unique"
-            display_text = f"{item} - {unique}"
-            self.phase_frames[phase_idx].listbox.insert(tk.END, display_text)
+            current = list(self.data_manager.get_item_bag_data(self.map_name))
+            current.append({"Item": item, "Phase": phase_idx, "Unique": int(unique)})
+            self.data_manager.update_item_bag_data(self.map_name, current)
 
     def remove_item(self):
-        for phase in range(3):
-            selected_item = self.phase_frames[phase].listbox.curselection()
-            if selected_item:
-                self.phase_frames[phase].listbox.delete(selected_item)
+        for phase in range(2):
+            selection = self.phase_frames[phase].listbox.curselection()
+            if selection:
+                phase_entries = [
+                    e
+                    for e in self.data_manager.get_item_bag_data(self.map_name)
+                    if e.get("Phase") == phase
+                ]
+                index_in_phase = selection[0]
+                if index_in_phase < len(phase_entries):
+                    current = list(self.data_manager.get_item_bag_data(self.map_name))
+                    current.remove(phase_entries[index_in_phase])
+                    self.data_manager.update_item_bag_data(self.map_name, current)
                 break
 
     def load_items(self, data):
-        self.data_store = data
-        items = self.data_store.get(self.map_name)
-        for item in items:
-            phase = item.get("Phase")
-            unique = "Unique" if item.get("Unique") else "Not Unique"
-            display_text = f"{item['Item']} - {unique}"
-            self.phase_frames[phase].listbox.insert(tk.END, display_text)
-            
-    def randomize_items(self, add_probability=0.5, unique_probability=0.2):
-        for phase in range(2):
-            self.phase_frames[phase].listbox.delete(0, tk.END)
+        items = data.get(self.map_name, [])
+        self.data_manager.update_item_bag_data(self.map_name, items)
 
+    def randomize_items(self, add_probability=0.5, unique_probability=0.2):
+        new_items = []
+        for phase in range(2):
+            random_items = []
             # Prendre 2 items au hasard dans la liste d'items disponible
             if len(self.combined_items) >= 2:
                 random_items = random.sample(self.combined_items, 2)
-                unique_item = random_items[0]
-                normal_item = random_items[1]
-
-                # Ajouter l'item unique
-                unique_text = f"{unique_item} - Unique"
-                self.phase_frames[phase].listbox.insert(tk.END, unique_text)
-
-                # Ajouter l'item normal
-                normal_text = f"{normal_item} - Not Unique"
-                self.phase_frames[phase].listbox.insert(tk.END, normal_text)
+                new_items.append({"Item": random_items[0], "Phase": phase, "Unique": 1})
+                new_items.append({"Item": random_items[1], "Phase": phase, "Unique": 0})
 
             # Ajouter les items aléatoires avec les probabilités spécifiées
             for item in self.combined_items:
                 if item not in random_items:
                     if random.random() < add_probability:
                         unique = random.random() < unique_probability
-                        unique_text = "Unique" if unique else "Not Unique"
-                        display_text = f"{item} - {unique_text}"
-                        self.phase_frames[phase].listbox.insert(tk.END, display_text)
-                    
+                        new_items.append(
+                            {"Item": item, "Phase": phase, "Unique": int(unique)}
+                        )
+
+        self.data_manager.update_item_bag_data(self.map_name, new_items)
+
     def save_items(self):
-        items = []
+        return list(self.data_manager.get_item_bag_data(self.map_name))
+
+    def refresh_data(self):
+        """Listener protocol expected by ItemBagDataManager.notify_listeners()."""
         for phase in range(2):
-            for i in range(self.phase_frames[phase].listbox.size()):
-                item_text = self.phase_frames[phase].listbox.get(i)
-                item_data = item_text.split(" - ")
-                item_name = item_data[0]
-                unique = not "Not Unique" in item_data[1]
-                items.append({"Item": item_name, "Phase": phase, "Unique": int(unique)})
-        self.data_store[self.map_name] = items
-        return items
+            self.phase_frames[phase].listbox.delete(0, tk.END)
+
+        for item in self.data_manager.get_item_bag_data(self.map_name):
+            phase = item.get("Phase")
+            if phase not in self.phase_frames:
+                continue
+            unique = "Unique" if item.get("Unique") else "Not Unique"
+            display_text = f"{item['Item']} - {unique}"
+            self.phase_frames[phase].listbox.insert(tk.END, display_text)
 
 
 def load_itembag_mapdata(base_path, map_name):
