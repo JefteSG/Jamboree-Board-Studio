@@ -1,7 +1,7 @@
 """Adapter: internal Board model -> game workspace JSON.
 
 Writes the same files/shape ``parser.py`` reads, mirroring
-``editor_modules.map_layout.save_map_layout_mapdata``'s conventions (see
+``jamboree_board_studio.legacy.editor_modules.map_layout.save_map_layout_mapdata``'s conventions (see
 ``parser.py`` for why this does not import that module directly).
 """
 

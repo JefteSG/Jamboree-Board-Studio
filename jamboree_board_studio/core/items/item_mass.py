@@ -2,7 +2,7 @@
 
 ``bd00_ItemMass_MapXX.json`` holds a per-map list of items obtainable
 from Item Cases, grouped by lot number (``No``) — see
-``editor_modules/item_mass.py`` for the existing widget.
+``jamboree_board_studio/legacy/editor_modules/item_mass.py`` for the existing widget.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ def parse_item_mass(workspace_path: str, map_name: str) -> list[ItemMassEntry]:
     entries = []
     for entry in raw_entries:
         if not all(key in entry for key in ("Item", "No")):
-            continue  # matches editor_modules.item_mass.process_itemmass_data
+            continue  # matches jamboree_board_studio.legacy.editor_modules.item_mass.process_itemmass_data
         entries.append(ItemMassEntry(item=entry["Item"], lot=entry["No"], game_data=entry))
     return entries
 

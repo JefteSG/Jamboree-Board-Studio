@@ -4,12 +4,12 @@
 a list of weighted-random event entries: four independent rate columns
 (``Rate0``-``Rate3``, one per turn-count bracket) and a ``Result`` drawn
 from a fixed list per event type (e.g. "7Coin", "Rob3Coin" — see
-``editor_modules.events.result_options``, unchanged/still the source of
+``jamboree_board_studio.legacy.editor_modules.events.result_options``, unchanged/still the source of
 truth for that list).
 
 KoopaMass ("Bowser Events") is special: every board except Map06 (King
 Bowser's Keep) shares the *same* file, keyed "Map00" rather than its own
-map name. ``editor_modules.events.EventDataManager`` keeps those boards'
+map name. ``jamboree_board_studio.legacy.editor_modules.events.EventDataManager`` keeps those boards'
 in-memory copies in sync live at runtime as the user edits — that's UI
 orchestration behavior, not file structure, so it stays there untouched;
 this module only knows about the on-disk file-sharing convention
@@ -46,7 +46,7 @@ def effective_map_name(map_name: str, data_type: str) -> str:
 
     KoopaMass is shared across every board except Map06, stored under
     "Map00" instead of each board's own name — mirrors
-    ``editor_modules.events.load_event_mapdata``'s own remapping.
+    ``jamboree_board_studio.legacy.editor_modules.events.load_event_mapdata``'s own remapping.
     """
     if data_type == "KoopaMass" and map_name != "Map06":
         return "Map00"
@@ -79,7 +79,7 @@ def parse_events(workspace_path: str, map_name: str, data_type: str) -> list[Eve
     entries = []
     for entry in raw_entries:
         if not all(key in entry for key in ("Rate0", "Rate1", "Rate2", "Rate3", "Result")):
-            continue  # matches editor_modules.events.process_event_data
+            continue  # matches jamboree_board_studio.legacy.editor_modules.events.process_event_data
         entries.append(
             EventEntry(
                 rate0=entry["Rate0"],

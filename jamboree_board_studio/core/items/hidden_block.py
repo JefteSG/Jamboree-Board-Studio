@@ -2,7 +2,7 @@
 
 ``bd00_HiddenBlock.json`` holds a single global (not per-map) list of
 loot entries, each assigned to one of 6 "lots" (``No`` 0-5), shared
-across every board — see ``editor_modules/hidden_block.py``'s ``LOTS``
+across every board — see ``jamboree_board_studio/legacy/editor_modules/hidden_block.py``'s ``LOTS``
 table for the known ``Result`` code -> friendly name mapping (unchanged,
 still the source of truth for that; not duplicated here).
 """
@@ -53,7 +53,7 @@ def parse_hidden_blocks(workspace_path: str) -> list[HiddenBlockEntry]:
     entries = []
     for entry in raw_entries:
         if not all(key in entry for key in ("No", "Result", "Rate")):
-            continue  # matches editor_modules.hidden_block.process_hiddenblock_data
+            continue  # matches jamboree_board_studio.legacy.editor_modules.hidden_block.process_hiddenblock_data
         entries.append(
             HiddenBlockEntry(
                 lot=entry["No"],

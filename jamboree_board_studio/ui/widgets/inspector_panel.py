@@ -20,10 +20,10 @@ import json
 import tkinter as tk
 from tkinter import ttk
 
-from editor_modules.map_layout import mass_attr_list
+from jamboree_board_studio.legacy.editor_modules.map_layout import mass_attr_list
 from jamboree_board_studio.core.board.models import BoardConnection, BoardSpace
 
-# Mirrors editor_modules.map_layout.MapLayoutEditor.on_click's own safety
+# Mirrors jamboree_board_studio.legacy.editor_modules.map_layout.MapLayoutEditor.on_click's own safety
 # rule: on Map07, NodeNo 59-66 are rewritten by the game itself (Wiggler
 # path) and must stay read-only. Duplicated here (rather than imported)
 # because it is a small, UI-level safety gate, not domain data; see

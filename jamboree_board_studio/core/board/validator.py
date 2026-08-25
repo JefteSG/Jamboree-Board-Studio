@@ -3,7 +3,7 @@
 This checks only structure (duplicate ids, dangling connection
 references) — it does not know game-specific semantic rules (e.g. that
 Lucky/Unlucky/Koopa event rate totals must sum correctly; that check
-already exists in ``editor_modules.events.EventDataManager`` and is out
+already exists in ``jamboree_board_studio.legacy.editor_modules.events.EventDataManager`` and is out
 of scope here). The intent is to give a future export step a way to flag
 an obviously broken board before writing it back into game files.
 """

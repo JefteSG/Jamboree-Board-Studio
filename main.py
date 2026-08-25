@@ -1,9 +1,6 @@
-import filecmp
 import json
 import os
-import os
 import sys
-import hashlib
 import shutil
 import re
 import tkinter as tk
@@ -19,6 +16,13 @@ from bea_archive_manager import (
 from editor import JamboreeMapEditor
 from jamboree_board_studio.core.board.workspace_validation import (
     validate_workspace_boards,
+)
+from jamboree_board_studio.services.workspace_service import (
+    calculate_checksum_for_directory,
+    compute_repack_instructions,
+    export_package_paths,
+    is_valid_workspace_name,
+    list_workspaces,
 )
 
 if getattr(sys, "frozen", False):
@@ -48,16 +52,6 @@ EXPECTED_CORE_CHECKSUMS = {
 
 # Global variable to track main menu window
 main_window = None
-
-def calculate_checksum_for_directory(directory):
-    sha256 = hashlib.sha256()
-    for root, _, files in sorted(os.walk(directory)):
-        for file in sorted(files):
-            file_path = os.path.join(root, file)
-            with open(file_path, "rb") as f:
-                while chunk := f.read(8192):
-                    sha256.update(chunk)
-    return sha256.hexdigest()
 
 def correct_and_verify_core_integrity(STE=False):
     if not os.path.exists(CORE_DIR):
@@ -203,15 +197,7 @@ def create_workspace():
     )
     if workspace_name:
         workspace_name = workspace_name.strip()
-        # A workspace name must be a plain directory name, not a path:
-        # os.path.join would otherwise let "../../something" (or a bare
-        # "..") escape WORKSPACE_DIR and have the CORE_DIR copy land
-        # somewhere unexpected on disk.
-        if (
-            not workspace_name
-            or os.path.basename(workspace_name) != workspace_name
-            or workspace_name in (".", "..")
-        ):
+        if not is_valid_workspace_name(workspace_name):
             messagebox.showerror(
                 "Invalid name",
                 "Workspace name must not be empty or contain path separators.",
@@ -257,11 +243,7 @@ def show_main_menu(current_root=None):
     selected_workspace = tk.StringVar()
 
     def update_workspace_list():
-        workspaces = [
-            d
-            for d in os.listdir(WORKSPACE_DIR)
-            if os.path.isdir(os.path.join(WORKSPACE_DIR, d))
-        ]
+        workspaces = list_workspaces(WORKSPACE_DIR)
         combobox["values"] = workspaces
         if workspaces:
             combobox.set("Select a workspace")
@@ -310,64 +292,12 @@ def show_main_menu(current_root=None):
                 )
                 return
 
-            packages_path_list = [
-                os.path.join(
-                    output_path,
-                    "Simple Mod Manager (SMM)",
-                    "mods",
-                    "Super Mario Party Jamboree",
-                    workspace,
-                    "contents",
-                    "0100965017338000",
-                    "romfs",
-                ),
-                os.path.join(
-                    output_path,
-                    "RYUJINX",
-                    "mods",
-                    "contents",
-                    "0100965017338000",
-                    workspace,
-                    "romfs",
-                ),
-                os.path.join(
-                    output_path,
-                    "YUZU",
-                    "load",
-                    "0100965017338000",
-                    workspace,
-                    "romfs",
-                ),
-            ]
+            packages_path_list = export_package_paths(output_path, workspace)
             if os.path.exists(output_path):
                 shutil.rmtree(output_path)
             os.makedirs(output_path, exist_ok=True)
 
-            instructions = {}
-            for current_root, _, file_list in os.walk(workspace_path):
-                for file_name in file_list:
-                    modified_file_path = os.path.join(current_root, file_name)
-                    relative_file_path = os.path.relpath(
-                        modified_file_path, workspace_path
-                    )
-                    original_file_path = os.path.join(CORE_DIR, relative_file_path)
-
-                    if not os.path.exists(original_file_path) or not filecmp.cmp(
-                        original_file_path, modified_file_path, shallow=False
-                    ):
-                        parts = relative_file_path.split(os.sep)
-                        bea_name = parts[0]
-                        inner_rel = os.path.join(*parts[1:])
-
-                        if bea_name not in instructions:
-                            instructions[bea_name] = []
-
-                        instructions[bea_name].append(
-                            {
-                                "source": modified_file_path,
-                                "destination": inner_rel,
-                            }
-                        )
+            instructions = compute_repack_instructions(workspace_path, CORE_DIR)
 
             repack = bea_archives_repacker(instructions, BASE_PATH, output_path)
 

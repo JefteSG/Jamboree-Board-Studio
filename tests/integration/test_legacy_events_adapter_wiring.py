@@ -1,4 +1,4 @@
-"""GUI regression tests for wiring editor_modules/events.py's
+"""GUI regression tests for wiring jamboree_board_studio/legacy/editor_modules/events.py's
 load_event_mapdata/save_event_mapdata onto jamboree_board_studio.core.events.
 
 Those two functions used to do their own ad hoc JSON file IO (including

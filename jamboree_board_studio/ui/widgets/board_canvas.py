@@ -1,11 +1,11 @@
 """2D canvas widget rendering a Board's spaces and connections.
 
 Extracted from the drawing/interaction logic of
-``editor_modules.map_layout.MapLayoutEditor`` (pan/zoom/click-select over
+``jamboree_board_studio.legacy.editor_modules.map_layout.MapLayoutEditor`` (pan/zoom/click-select over
 a matplotlib figure embedded in Tk), but rendering from the
 format-independent ``Board`` model instead of a raw game-data dict.
 Colors and the "editable type" list are reused directly from
-``editor_modules.map_layout`` rather than duplicated.
+``jamboree_board_studio.legacy.editor_modules.map_layout`` rather than duplicated.
 
 This widget never invents a space's position: it only draws a space that
 already has a ``visual_position`` (computed by
@@ -26,7 +26,7 @@ from matplotlib import patheffects
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.patches import Circle, FancyArrowPatch, Polygon
 
-from editor_modules.map_layout import mass_attr_colors
+from jamboree_board_studio.legacy.editor_modules.map_layout import mass_attr_colors
 from jamboree_board_studio.core.board.layout import apply_visual_positions
 from jamboree_board_studio.core.board.models import Board, BoardConnection, BoardSpace
 

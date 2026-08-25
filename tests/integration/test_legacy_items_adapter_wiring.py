@@ -1,4 +1,4 @@
-"""GUI regression tests for wiring editor_modules/{hidden_block,item_bag,
+"""GUI regression tests for wiring jamboree_board_studio/legacy/editor_modules/{hidden_block,item_bag,
 item_mass,item_shop}.py onto the new jamboree_board_studio.core.items
 adapters.
 

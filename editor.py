@@ -2,34 +2,34 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-from editor_modules.hidden_block import (
+from jamboree_board_studio.legacy.editor_modules.hidden_block import (
     HiddenBlockDataManager,
     HiddenBlockEditor,
     load_hiddenblock_mapdata,
     save_hiddenblock_mapdata,
 )
-from editor_modules.item_bag import (
+from jamboree_board_studio.legacy.editor_modules.item_bag import (
     ItemBagEditor,
     load_itembag_mapdata,
     save_itembag_mapdata,
 )
-from editor_modules.item_mass import (
+from jamboree_board_studio.legacy.editor_modules.item_mass import (
     ItemMassEditor,
     load_itemmass_mapdata,
     save_itemmass_mapdata,
 )
-from editor_modules.item_shop import (
+from jamboree_board_studio.legacy.editor_modules.item_shop import (
     ItemShopEditor,
     load_itemshop_mapdata,
     save_itemshop_mapdata,
 )
-from editor_modules.events import (
+from jamboree_board_studio.legacy.editor_modules.events import (
     EventEditor,
     EventDataManager,
     load_event_mapdata,
     save_event_mapdata,
 )
-from editor_modules.map_layout import (
+from jamboree_board_studio.legacy.editor_modules.map_layout import (
     MapLayoutEditor,
     load_map_layout_mapdata,
     save_map_layout_mapdata,

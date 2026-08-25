@@ -2,7 +2,7 @@
 
 This is *not* game data. It computes a 2D position per space purely for
 on-screen display, using the same technique the legacy Map Layout viewer
-already used (``editor_modules.map_layout.MapLayoutEditor.draw_map``):
+already used (``jamboree_board_studio.legacy.editor_modules.map_layout.MapLayoutEditor.draw_map``):
 inferring a node's position from the first Bezier control point of the
 first path segment that touches it (first-touch wins, X/Z only, no
 height). This is an approximation of unknown accuracy — see

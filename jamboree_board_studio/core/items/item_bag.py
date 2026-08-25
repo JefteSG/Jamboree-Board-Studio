@@ -2,7 +2,7 @@
 
 ``bd00_ItemBag_MapXX.json`` holds a per-map list of items obtainable
 from Item Bags, split into two "phases" (0 = Standard, 1 = Standard, 5
-Last Turns) — see ``editor_modules/item_bag.py`` for the existing widget.
+Last Turns) — see ``jamboree_board_studio/legacy/editor_modules/item_bag.py`` for the existing widget.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def parse_item_bag(workspace_path: str, map_name: str) -> list[ItemBagEntry]:
     entries = []
     for entry in raw_entries:
         if not all(key in entry for key in ("Item", "Phase", "Unique")):
-            continue  # matches editor_modules.item_bag.process_itembag_data
+            continue  # matches jamboree_board_studio.legacy.editor_modules.item_bag.process_itembag_data
         entries.append(
             ItemBagEntry(
                 item=entry["Item"],

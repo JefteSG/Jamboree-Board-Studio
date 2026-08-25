@@ -3,7 +3,7 @@
 ``models`` defines the format-independent representation. ``parser`` and
 ``serializer`` are adapters that convert between that representation and
 the existing on-disk workspace layout (``bd~bdXX.nx/bd/bdXX/data/*.json``),
-reusing the already-understood loaders in ``editor_modules.map_layout``
+reusing the already-understood loaders in ``jamboree_board_studio.legacy.editor_modules.map_layout``
 rather than re-implementing them.
 """
 

@@ -1,11 +1,11 @@
 """Adapter: game workspace JSON -> internal Board model.
 
 This reads the same files and expects the same shape as the existing
-``editor_modules.map_layout.load_map_layout_mapdata`` (``bdXX_MapNode.json``
+``jamboree_board_studio.legacy.editor_modules.map_layout.load_map_layout_mapdata`` (``bdXX_MapNode.json``
 / ``bdXX_MapPath.json``), but does not import that module directly: it is
 a Tkinter/matplotlib UI widget module, and the domain layer must stay
 free of UI dependencies so it can be used and tested headlessly. If
-``editor_modules`` is ever split into UI-only code, this small
+``jamboree_board_studio.legacy.editor_modules`` is ever split into UI-only code, this small
 duplication (~file path + JSON load) should be collapsed in favour of a
 single shared loader.
 
@@ -83,7 +83,7 @@ def build_board_from_raw(
     This is the pure transform used by ``parse_board`` after reading the
     files from disk, but it is also the entry point the UI layer uses to
     build a ``Board`` directly from data the legacy editor already has in
-    memory (``editor_modules.map_layout.MapLayoutEditor.map_layout_data``),
+    memory (``jamboree_board_studio.legacy.editor_modules.map_layout.MapLayoutEditor.map_layout_data``),
     instead of re-reading files. That matters for round-trip safety: it
     keeps a single in-memory copy of each node/segment dict, so an edit
     made through the new ``Board``-based UI is the same object the legacy

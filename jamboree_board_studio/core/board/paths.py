@@ -1,6 +1,6 @@
 """Shared workspace file-path convention for board layout data.
 
-Mirrors the convention already used by ``editor_modules.map_layout``
+Mirrors the convention already used by ``jamboree_board_studio.legacy.editor_modules.map_layout``
 (``get_file_path``): ``bd~bdXX.nx/bd/bdXX/data/bdXX_<FileType>.json``.
 Kept here, independent of that module, so ``core.board`` does not pull in
 its tkinter/matplotlib dependencies (see parser.py for why).

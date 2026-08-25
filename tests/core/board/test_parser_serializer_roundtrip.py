@@ -3,7 +3,7 @@
 No real Super Mario Party Jamboree dump is available in this environment
 (the project never bundles game files — see README). These fixtures are
 *synthetic*, built only from the field names/shapes already confirmed by
-the existing ``editor_modules.map_layout`` loader (``NodeNo``, ``MassAttr``,
+the existing ``jamboree_board_studio.legacy.editor_modules.map_layout`` loader (``NodeNo``, ``MassAttr``,
 ``NpcNodeNo0``, and the ``MapPath`` -> ``Path`` -> ``Bezier`` structure).
 They intentionally include fields this parser does not interpret
 ("UnknownNodeField", "SomeExtraPathField") to prove those are preserved

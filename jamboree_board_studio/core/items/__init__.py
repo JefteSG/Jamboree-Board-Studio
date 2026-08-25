@@ -8,6 +8,6 @@ dataclass, a ``parse_*`` function (file -> model, raising a dedicated
 ``game_data`` back with only the known fields synced, so unrecognized
 keys survive a parse -> edit -> serialize cycle.
 
-These are additive: the existing widgets in ``editor_modules/`` are
+These are additive: the existing widgets in ``jamboree_board_studio/legacy/editor_modules/`` are
 untouched and keep doing their own file IO exactly as before.
 """

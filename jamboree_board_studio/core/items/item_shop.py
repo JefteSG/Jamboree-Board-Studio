@@ -5,7 +5,7 @@ entries — ``{"Phase": 0-2, "Type": 0|1, "Item": str, "Count": int,
 "Price": int}``. Slot position (1-6) is **not** stored explicitly in the
 file: it is implied by an entry's position within its own (Type, Phase)
 group, in file order. This mirrors
-``editor_modules.item_shop.read_itemshops``'s own ``slot_tracker`` logic
+``jamboree_board_studio.legacy.editor_modules.item_shop.read_itemshops``'s own ``slot_tracker`` logic
 exactly, so parsing here produces the identical slot assignment the
 existing widget already shows — see that function if this ever needs
 re-verifying against the original.
@@ -70,7 +70,7 @@ def parse_item_shop(workspace_path: str, map_name: str) -> list[ShopSlotEntry]:
     other parsers (``core.board.parser``, the other ``core.items``
     modules) — callers that want the legacy tolerant behavior (treat a
     missing file as "everything empty") do so explicitly by catching
-    this, the same way ``editor_modules.item_shop.load_itemshop_mapdata``
+    this, the same way ``jamboree_board_studio.legacy.editor_modules.item_shop.load_itemshop_mapdata``
     does.
     """
     if map_name not in KNOWN_MAP_NAMES:
@@ -134,7 +134,7 @@ def serialize_item_shop(
     Empty slots are simply omitted (slot position is positional in this
     format, not stored). If every slot in a (shop, phase) group is
     empty, a single "Stone" placeholder entry is written instead —
-    mirrors ``editor_modules.item_shop.save_itemshop_mapdata``'s own
+    mirrors ``jamboree_board_studio.legacy.editor_modules.item_shop.save_itemshop_mapdata``'s own
     fallback exactly, including its printed message; apparently an
     entirely empty shop/phase isn't a state the game handles cleanly.
     """
