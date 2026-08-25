@@ -21,6 +21,7 @@ from jamboree_board_studio.legacy.editor_modules.item_mass import (
     save_itemmass_mapdata,
 )
 from jamboree_board_studio.legacy.editor_modules.item_shop import (
+    ItemShopDataManager,
     ItemShopEditor,
     load_itemshop_mapdata,
     save_itemshop_mapdata,
@@ -41,6 +42,7 @@ from jamboree_board_studio.ui.widgets.board_canvas import BoardCanvas
 from jamboree_board_studio.ui.widgets.hidden_block_panel import HiddenBlockPanel
 from jamboree_board_studio.ui.widgets.item_bag_panel import ItemBagPanel
 from jamboree_board_studio.ui.widgets.item_mass_panel import ItemMassPanel
+from jamboree_board_studio.ui.widgets.item_shop_panel import ItemShopPanel
 from jamboree_board_studio.ui.widgets.inspector_panel import InspectorPanel
 from jamboree_board_studio.ui.widgets.space_list_panel import SpaceListPanel
 
@@ -117,7 +119,7 @@ class MapTab(tk.Frame):
         self,
         parent,
         map_name,
-        item_shop_data,
+        item_shop_data_manager,
         item_bag_data_manager,
         item_mass_data_manager,
         event_data_manager,
@@ -130,7 +132,7 @@ class MapTab(tk.Frame):
     ):
         super().__init__(parent)
         self.WORKSPACE_PATH = WORKSPACE_PATH
-        self.item_shop_data = item_shop_data
+        self.item_shop_data_manager = item_shop_data_manager
         self.item_bag_data_manager = item_bag_data_manager
         self.item_mass_data_manager = item_mass_data_manager
         self.event_data_manager = event_data_manager
@@ -155,7 +157,7 @@ class MapTab(tk.Frame):
         self.koopa_shop = ItemShopEditor(
             koopa_tab,
             "KoopaShop",
-            self.item_shop_data,
+            self.item_shop_data_manager,
             self.map_name,
             general_items,
             map_items,
@@ -166,11 +168,22 @@ class MapTab(tk.Frame):
         self.kamek_shop = ItemShopEditor(
             kamek_tab,
             "KamekShop",
-            self.item_shop_data,
+            self.item_shop_data_manager,
             self.map_name,
             general_items,
             map_items,
         )
+
+        item_shop_preview_tab = ttk.Frame(self.shop_notebook)
+        self.shop_notebook.add(item_shop_preview_tab, text="Item Shop (Preview)")
+        self.item_shop_panel = ItemShopPanel(
+            item_shop_preview_tab,
+            self.map_name,
+            self.item_shop_data_manager,
+            general_items,
+            map_items,
+        )
+        self.item_shop_panel.pack(fill="both", expand=True)
 
         self.items_packs_tab = ttk.Frame(self.main_notebook)
         self.main_notebook.add(self.items_packs_tab, text="Item Packs")
@@ -462,7 +475,6 @@ class JamboreeMapEditor(tk.Tk):
             f"Super Mario Party Jamboree : Map Editor | {os.path.basename(WORKSPACE_PATH)}"
         )
 
-        self.item_shop_data = {}
         self.luckymass_data = {}
         self.unluckymass_data = {}
         self.koopamass_data = {}
@@ -471,6 +483,7 @@ class JamboreeMapEditor(tk.Tk):
         self.hiddenblock_data_manager = HiddenBlockDataManager()
         self.item_bag_data_manager = ItemBagDataManager()
         self.item_mass_data_manager = ItemMassDataManager()
+        self.item_shop_data_manager = ItemShopDataManager()
 
         style = ttk.Style(self)
         style.configure("TNotebook", tabposition="n")
@@ -486,7 +499,7 @@ class JamboreeMapEditor(tk.Tk):
             tab = MapTab(
                 self.notebook,
                 map_name,
-                self.item_shop_data,
+                self.item_shop_data_manager,
                 self.item_bag_data_manager,
                 self.item_mass_data_manager,
                 self.event_data_manager,
@@ -498,11 +511,6 @@ class JamboreeMapEditor(tk.Tk):
                 self.WORKSPACE_PATH,
             )
             self.notebook.add(tab, text=map_items[map_name]["name"])
-
-            self.item_shop_data[map_name] = {
-                "KoopaShop": {"P0": {}, "P1": {}, "P2": {}},
-                "KamekShop": {"P0": {}, "P1": {}, "P2": {}},
-            }
 
         self.general_frame = tk.Frame(self)
         self.general_frame.pack(side="right", padx=10, pady=10)
