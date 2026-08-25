@@ -43,6 +43,7 @@ from jamboree_board_studio.ui.widgets.hidden_block_panel import HiddenBlockPanel
 from jamboree_board_studio.ui.widgets.item_bag_panel import ItemBagPanel
 from jamboree_board_studio.ui.widgets.item_mass_panel import ItemMassPanel
 from jamboree_board_studio.ui.widgets.item_shop_panel import ItemShopPanel
+from jamboree_board_studio.ui.widgets.event_panel import EventPanel
 from jamboree_board_studio.ui.widgets.inspector_panel import InspectorPanel
 from jamboree_board_studio.ui.widgets.space_list_panel import SpaceListPanel
 
@@ -264,6 +265,15 @@ class MapTab(tk.Frame):
             APP_WIDTH,
             self.event_data_manager,
         )
+
+        events_preview_tab = ttk.Frame(self.events_notebook)
+        self.events_notebook.add(events_preview_tab, text="Events (Preview)")
+        self.event_panel = EventPanel(
+            events_preview_tab,
+            self.map_name,
+            self.event_data_manager,
+        )
+        self.event_panel.pack(fill="both", expand=True)
 
         self.hidden_block_tab = ttk.Frame(self.main_notebook)
         self.main_notebook.add(self.hidden_block_tab, text="Hidden Block")

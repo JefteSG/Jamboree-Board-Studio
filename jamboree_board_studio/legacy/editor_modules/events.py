@@ -100,7 +100,14 @@ class EventDataManager:
                 if linked_map not in self.event_data:
                     self.event_data[linked_map] = {}
                 self.event_data[linked_map][data_type] = current_data
-            self.notify_listeners()
+        # Broadcast a redraw regardless of data_type/map_name (not just
+        # the KoopaMass cross-map case above): every EventEditor now
+        # registers as a listener (see __init__), so this is what makes
+        # a Lucky/Unlucky/KoopaMass edit from any single view -- the
+        # legacy widget or the new Events preview panel -- show up
+        # everywhere else that reads the same (map_name, data_type) pool,
+        # including each listener's own rate-status recalculation.
+        self.notify_listeners()
 
     def get_linked_maps(self, map_name):
         linked_maps = []
@@ -144,8 +151,14 @@ class EventEditor:
         self.entries = {}
         self.create_ui(app_width)
 
-        if data_type == "KoopaMass" and map_name != "Map06":
-            event_data_manager.register_listener(self)
+        # Every editor is a listener now (not just KoopaMass on non-Map06
+        # maps, as before): sync_with_linked_maps() always broadcasts,
+        # and update_event_listbox() only ever touches this instance's
+        # own (map_name, data_type) pool, so a broadcast from an
+        # unrelated pool/map is a harmless no-op redraw here. This is
+        # what lets the new Events preview panel's edits show up in this
+        # widget automatically.
+        event_data_manager.register_listener(self)
 
     def create_ui(self, app_width):
         self.frame.grid_columnconfigure(0, weight=1)
@@ -209,6 +222,15 @@ class EventEditor:
     def load_event_data(self, data):
         self.event_data_manager.update_event_data(self.map_name, self.data_type, data)
         self.update_event_listbox()
+        # Unlike add/remove/randomize, this never went through
+        # sync_with_linked_maps() (no need to -- each map's own file read
+        # already gets it the correct, already-shared KoopaMass data), so
+        # it never broadcast to other listeners either. Now that every
+        # editor (and the Events preview panel) is a listener, an
+        # explicit notify here is what lets the panel actually see data
+        # loaded before it existed, instead of staying empty until the
+        # first edit.
+        self.event_data_manager.notify_listeners()
     
     def randomize_event_data(self): # randomize les entrées a partir de la variable result_options et du self.data_type, les rates ne peuvent pas etre a 0 et ne peuvent pas dépasser 100 chaque rate ne peut pas dépasser un certain pourcentage de l'espace disponible, chaque rate est indépendante des autres
         rate0 = 0
