@@ -17,6 +17,9 @@ from bea_archive_manager import (
     download_bea_lib_latest_via_curl,
 )
 from editor import JamboreeMapEditor
+from jamboree_board_studio.core.board.workspace_validation import (
+    validate_workspace_boards,
+)
 
 if getattr(sys, "frozen", False):
     BASE_PATH = os.path.dirname(sys.executable)
@@ -199,6 +202,21 @@ def create_workspace():
         "Create Workspace", "Enter the name of the new workspace:"
     )
     if workspace_name:
+        workspace_name = workspace_name.strip()
+        # A workspace name must be a plain directory name, not a path:
+        # os.path.join would otherwise let "../../something" (or a bare
+        # "..") escape WORKSPACE_DIR and have the CORE_DIR copy land
+        # somewhere unexpected on disk.
+        if (
+            not workspace_name
+            or os.path.basename(workspace_name) != workspace_name
+            or workspace_name in (".", "..")
+        ):
+            messagebox.showerror(
+                "Invalid name",
+                "Workspace name must not be empty or contain path separators.",
+            )
+            return None
         workspace_path = os.path.join(WORKSPACE_DIR, workspace_name)
         try:
             if os.path.exists(workspace_path):
@@ -276,6 +294,22 @@ def show_main_menu(current_root=None):
         if workspace in workspaces:
             workspace_path = os.path.join(WORKSPACE_DIR, workspace)
             output_path = os.path.join(OUTPUT_DIR, workspace)
+
+            validation_results = validate_workspace_boards(workspace_path)
+            if validation_results:
+                details = "\n".join(
+                    f"- {result.map_name}: {message}"
+                    for result in validation_results
+                    for message in result.messages
+                )
+                messagebox.showerror(
+                    "Board validation failed",
+                    "Export aborted: the following board data problems "
+                    f"were found:\n\n{details}\n\n"
+                    "Fix these in the editor before exporting.",
+                )
+                return
+
             packages_path_list = [
                 os.path.join(
                     output_path,
