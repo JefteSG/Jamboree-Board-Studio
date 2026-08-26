@@ -38,12 +38,19 @@ _zstd_compression_level = 3  # reasonable level, adjust if needed
 def init_dotnet_runtime():
     """Initialize .NET with complete system log suppression"""
     system = platform.system()
-    
+
     try:
         if system == "Windows":
             load("coreclr")
         else:
-            load("mono")
+            # BezelEngineArchive_Lib.dll (from KillzXGaming/BEA-Library-Editor)
+            # targets net8.0. Mono's classlibs don't have the modern BCL types
+            # referenced by a net8.0 assembly's metadata (e.g.
+            # System.Runtime.CompilerServices.NullableContextAttribute), and
+            # Mono hard-aborts (SIGABRT) instead of raising TypeLoadException
+            # when it can't resolve them. CoreCLR is required here too.
+            dotnet_root = os.environ.get("DOTNET_ROOT") or os.path.expanduser("~/.dotnet")
+            load("coreclr", dotnet_root=dotnet_root)
     except Exception as e:
         raise RuntimeError(f".NET Runtime Initialization Failed: {e}")
 
@@ -190,7 +197,7 @@ def download_bea_lib_latest_via_curl() -> bool:
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     if target_path.exists():
                         target_path.unlink()
-                    tmp_extract.replace(target_path)
+                    shutil.move(str(tmp_extract), str(target_path))
 
                     if target_name.lower() == "bezelenginearchive_lib.dll":
                         dll_found = True

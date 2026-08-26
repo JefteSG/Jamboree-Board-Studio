@@ -7,17 +7,19 @@ domain layer never silently invents data — if something below is marked
 `Unknown` or `Hypothesis`, the code must treat it as such (leave it
 `None`/empty, not fabricate a value).
 
-**Important limitation of this pass**: no real Super Mario Party Jamboree
-dump is present in this repository or in the environment this research
-was done in — the project intentionally never bundles game files
-(`CORE/`, `ROMFS/`, `workspace/` are all gitignored), and none of this
-document's authors have run the tool against a real dump while writing
-it. Everything here comes from reading the existing parsers in
-`editor_modules/`, `editor.py`, and `bea_archive_manager.py`. Field
-*names*, *shapes*, and *observed behavior in code* are Known; their
-*meaning* and *completeness* are frequently only Probably or Unknown.
-Anyone with an actual extracted workspace should treat this doc as a
-checklist to verify, not as ground truth.
+**Provenance note (update)**: the original pass below was written with no
+real Super Mario Party Jamboree dump available — the project
+intentionally never bundles game files (`CORE/`, `ROMFS/`, `workspace/`
+are all gitignored), so everything was inferred from reading the
+existing parsers in `editor_modules/`, `editor.py`, and
+`bea_archive_manager.py`. A later pass (marked **"(verified against real
+dump)"** below) checked the specific `Unknown`/`Probably` claims about
+`MapNode`/`MapPath` structure against a real extracted workspace, in an
+environment that had the game's files but did not retain or ship them —
+only schema-level facts (field names, value inventories, counts, JSON
+shapes) came out of that pass, never asset content itself. Anywhere not
+marked as verified is still exactly as uncertain as the original pass
+left it — treat those as a checklist to verify, not as ground truth.
 
 ## File layout
 
@@ -50,96 +52,184 @@ The mapping from archive index to board name is:
 
 ## Space types ("MassAttr")
 
-**Status: Known (partially).**
+**Status: Known (verified against real dump).**
 
-Each board's `bd{NN}_MapNode.json` has a top-level `MapNode` array. Each
-entry observed in code has at least:
-
-- `NodeNo` (int) — the space's id, referenced everywhere else as an
-  adjacency/foreign key.
-- `MassAttr` (string) — the space's type/category.
-- `NpcNodeNo0` (int) — `-1` normally; some other value marks the node as
-  "NPC-linked" and the existing editor treats it as read-only (drawn as
-  a square instead of a circle, right-click edit refused). What exactly
-  an NPC-linked node *is* in-game (an actual NPC's position? a
-  special/blocked tile?) is **Unknown** — only its editing consequence
-  in the current tool is documented in code.
-
-Confirmed `MassAttr` values seen in `editor_modules/map_layout.py`'s
-color/legend tables:
+Each board's `bd{NN}_MapNode.json` has a top-level `MapNode` array.
+**Confirmed exhaustive key set** for a `MapNode` entry (union across all
+7 boards, real dump — the "whether entries carry fields beyond
+`NodeNo`/`MassAttr`/`NpcNodeNo0`" question below is now answered: yes,
+and here is the full set):
 
 ```
-Item, Happening, Chance, Plus, Minus, Lucky, Unlucky, VS, Koopa,
-SpotTeresa, SpotItemShopNokonoko, SpotItemShopKameck, SpotBranch,
-SpotEvent, SpotBranchKey
+AuxNodeNo0, AuxNodeNo1, AuxParam0, AuxParam1, AuxParam2, AuxParam3,
+BranchNodeNo0, BranchNodeNo1, MapNodeNo0, MapNodeNo1,
+MarkNodeNo0, MarkNodeNo1, MarkNodeNo2, MarkNodeNo3,
+MassAttr, MassFlag, NextNodeNo, NodeNo, NpcNodeNo0, NpcNodeNo1,
+PrevNodeNo, SettingTrapEvaluation, Teresa, TrapBoard
 ```
 
-Of these, only `Item, Chance, Plus, Minus, Lucky, Unlucky, VS, Koopa` are
-currently editable through the tool's right-click cycle
-(`mass_attr_list`); the rest are recognized (drawn/colored) but not
-editable, presumably because their game-side meaning/constraints aren't
-understood well enough yet to expose editing safely.
+None of the `AuxParam*`/`BranchNodeNo*`/`MapNodeNo*`/`MarkNodeNo*`/
+`MassFlag`/`SettingTrapEvaluation`/`Teresa`/`TrapBoard` fields are read
+anywhere in existing code — their meaning is still **Unknown**, only
+their existence and name are now confirmed. `NpcNodeNo0`'s *meaning* is
+likewise still Unknown (still just "-1 normally, editor treats non–-1 as
+read-only"), only its presence in every real node was already known.
 
-**Probably**: `MassAttr` values not in the color table at all would
-still round-trip through this project's new `BoardSpace.game_data`
-(nothing is dropped), but would show with a generic/default color and
-type label in any new visual layer, since they aren't in the known list.
+**Confirmed `MassAttr` value inventory** (real counts across all 7
+boards, most to least common):
 
-**Unknown**: whether `MapNode` entries carry any fields beyond `NodeNo`,
-`MassAttr`, `NpcNodeNo0` — the existing code only ever reads those three,
-so anything else present in a real file has never been inspected.
-`Star`/`Boo` spaces (which the SMPJ Map Editor README lists under
-"Features In Mind" as *not yet supported*) may already exist as
-`MassAttr` string values in real data, or may not exist as a `MassAttr`
-concept at all — needs verification against a real dump.
+| Value | Count | In code's color table? | Editable via right-click cycle? |
+|---|---|---|---|
+| `""` (empty string) | 1190 | No | No |
+| `Plus` | 204 | Yes | Yes |
+| `Lucky` | 116 | Yes | Yes |
+| `Happening` | 63 | Yes | No |
+| `Item` | 56 | Yes | Yes |
+| `SpotEvent` | 45 | Yes | No |
+| `Minus` | 36 | Yes | Yes |
+| `SpotBranch` | 30 | Yes | No |
+| `VS` | 20 | Yes | Yes |
+| `Unlucky` | 16 | Yes | Yes |
+| `Koopa` | 15 | Yes | Yes |
+| `Chance` | 13 | Yes | Yes |
+| `SpotTeresa` | 10 | Yes | No |
+| `SpotItemShopNokonoko` | 8 | Yes | No |
+| `Start` | 7 | No | No |
+| `SpotItemShopKameck` | 7 | Yes | No |
+| `Spot` (no suffix) | 6 | No | No |
+| `SpotBranchKey` | 4 | Yes | No |
+
+Two findings not previously documented anywhere in code or this doc:
+
+- The empty string `""` is not a rare edge case — it is the **dominant**
+  value (~65% of all spaces across the game). It represents whatever a
+  "plain" space is (no modifier), and it is *not* in `mass_attr_list`,
+  so the existing right-click cycle can't reach it (a blank space can't
+  currently be turned into `Chance`/`Unlucky`/etc. through that
+  mechanism; only already-non-blank editable-type spaces can be
+  reassigned among each other). Same for `Start` (the board's starting
+  space, 1 per board as expected, 7 total) — also absent from both the
+  color table and the editable list.
+- `Spot` (the bare word, no `Event`/`Branch`/`Teresa`/`ItemShop*` suffix)
+  is a real, distinct value seen 6 times — it does not match anything in
+  `editor_modules/map_layout.py`'s tables at all, not even as a
+  recognized-but-uneditable color entry. Its meaning is Unknown.
+
+**Confirmed absent**: `Star` and `Boo` do not appear as `MassAttr`
+values anywhere in the real dump checked. The README's "Features In
+Mind: Star/Boo spaces, not yet supported" note is consistent with
+this — if those exist in-game at all, they are not represented as a
+static `MassAttr` string on a `MapNode`, at least not under those exact
+names.
 
 ## Space position
 
-**Status: Unknown (no confirmed authoritative field found).**
+**Status: `MapNode` has no position field — confirmed against real dump.
+A real candidate field for actual 3D position exists on `MapPath`
+Bezier data, previously undocumented; whether it's authoritative is
+still Hypothesis.**
 
 Files inspected: `bd{NN}_MapNode.json`, `bd{NN}_MapPath.json`, all of
 `editor_modules/map_layout.py`.
 
-No per-`MapNode` X/Y/Z or transform field is read anywhere in the
-current code. What the existing "Map Layout" viewer displays as node
-positions is **not** stored per-node — it's inferred, once per node, as
-a side effect of walking `MapPath` segments (see below), using only the
-first `Bezier` control point touching that node, and only its X/Z
-components (no height/Y at all, no rotation, no scale).
+The exhaustive `MapNode` key list confirmed in the section above has no
+X/Y/Z or transform field of any kind — this is now a confirmed fact
+about real data, not just "not read by any code we found". What the
+existing "Map Layout" viewer displays as node positions is **not**
+stored per-node — it's inferred, once per node, as a side effect of
+walking `MapPath` segments (see below), using only the first `Bezier`
+control point touching that node, and only its X/Z components.
+
+**Update**: "no height/Y at all" (the original claim here) is **wrong**
+— see the Connections/Paths section below. The real `Bezier` structure
+has full X/Y/Z for two *different* kinds of point (`Position0/1` and
+`Anchor0/1`), only the existing code has only ever read
+`Position0X`/`Position0Z`. This means real 3D position data — including
+height — exists somewhere in the file the visual layer already parses;
+it's just never been extracted or interpreted as such. Whether
+`Anchor`/`Position` correspond to "the actual point on the curve" vs.
+"a control handle" (standard Bezier terminology would suggest `Anchor`
+= on-curve, `Position` = control point, but this is a guess from the
+field names alone, not verified against rendering behavior) — and
+whether either one is a trustworthy stand-in for "where this node really
+is in 3D space" as opposed to being purely local to that one path
+segment's curve shape — is **Hypothesis, not Known**. Worth a follow-up
+pass: compare `Anchor`/`Position` values from *every* edge touching a
+given `NodeNo` — if they agree closely across edges, that's real
+evidence the node has one true position; if they diverge, they're
+probably just curve-local geometry.
 
 This is why `jamboree_board_studio.core.board.models.BoardSpace.position`
-is left `None` by the parser: it is not a confirmed real position, it's
-a geometric approximation of one, derived from path data that exists for
-a different purpose (drawing connections). Treating it as authoritative
-position data would risk baking a wrong assumption into the new domain
-model. The approximation is instead exposed separately as
-`BoardSpace.visual_position`, computed by presentation code, explicitly
-never written back to game files.
+is left `None` by the parser: even with the above, it is not yet a
+*confirmed* real position, only a promising unverified lead. Treating it
+as authoritative position data before that follow-up would risk baking a
+wrong assumption into the new domain model. The approximation already in
+use is instead exposed separately as `BoardSpace.visual_position`,
+computed by presentation code, explicitly never written back to game
+files.
 
-**Potential candidates for a future search**, not yet investigated:
-files this project has never parsed at all — e.g. any 3D model/level
-files that would need to reference actual node placement for rendering
-purposes (course meshes, collision data). These are entirely outside
-`editor_modules/`'s current scope and were not present to inspect in
-this environment.
+**Potential candidates for a future search**, still not investigated:
+any 3D model/level files that would need to reference actual node
+placement for rendering purposes (course meshes, collision data). These
+are entirely outside `editor_modules/`'s current scope.
 
 ## Connections / Paths
 
-**Status: Known structure, semantics probably correct, unverified against real game.**
+**Status: Structure confirmed against real dump (including two fields
+this doc previously didn't know existed); semantics still probably
+correct but unverified against real game behavior.**
 
 `bd{NN}_MapPath.json` has a top-level `MapPath` array. Each entry has:
 
 - `NodeNo` (int) — the source node.
-- `Path` (array) — outgoing edges from that node. Each element has at
-  least `NodeNo` (the **target** node for that edge) and a `Bezier`
-  array.
+- `Path` (array) — outgoing edges from that node.
 
-Each `Bezier` array element observed has `Position0X`, `Position0Z`,
-`Position1X`, `Position1Z` (floats) — presumably the curve's start/end
-control points for that segment, only ever indexed at `[0]` by existing
-code. **Unknown**: what a second/third `Bezier` array element would mean
-(additional curve control points for a bent path? unused?), and whether
-`Y`/height components exist alongside X/Z anywhere in this structure.
+**Confirmed exhaustive key set for a `Path[]` edge** (real dump, all 7
+boards): `NodeNo, Attribute, Length, Bezier`. `Attribute` and `Length`
+were not previously documented here at all — the existing code only
+ever reads `NodeNo` and `Bezier`.
+
+- `Attribute` (int): real values are `0` (736 edges, ~72%), `1` (214,
+  ~21%), `2` (79, ~7%) across the whole game. This is a real, common
+  category, not a rare/degenerate case — meaning of each value is
+  Unknown, but `2` is common enough that it should not be assumed
+  invalid or a "special/broken" marker by default.
+- `Length` (number): present on every edge; not yet cross-checked
+  against the actual geometric length implied by its `Bezier` data —
+  Unknown whether it's derived/redundant or authoritative.
+
+**Confirmed exhaustive key set for a `Bezier` array element**: `Anchor0X,
+Anchor0Y, Anchor0Z, Anchor1X, Anchor1Y, Anchor1Z, Position0X, Position0Y,
+Position0Z, Position1X, Position1Y, Position1Z, Length, Ratio`. This
+corrects the original claim in this doc — see Space Position above:
+`Y` components exist for **both** `Position` and a previously
+undocumented second point pair, `Anchor`. The existing visual layer only
+ever reads `Position0X`/`Position0Z`, ignoring `Position0Y`,
+`Position1*`, all of `Anchor*`, and the edge-level `Ratio`.
+
+**Confirmed: the `Bezier` array is (almost) never more than 1 element.**
+Real distribution across all 1029 edges in the game: exactly 1028 edges
+have a 1-element `Bezier` array, and exactly **1** edge has a 0-element
+(empty) array. That one edge is also the sole dangling connection found
+during this pass (see callout below) — so in practice, "what would a
+2nd/3rd Bezier element mean" is moot for this real dump: it never
+happens. The array wrapper may just be this format's way of nesting a
+single struct, or a leftover from a differently-shaped format elsewhere.
+
+**Known real-data anomaly, worth carrying forward**: exactly one edge in
+the entire game (found on the Map03/Mario's Rainbow Castle board) has
+`Attribute: 2`, `Length: 0`, an empty `Bezier` array, and a target
+`NodeNo` that does not exist in that board's own `MapNode` list — i.e. a
+genuinely dangling reference, present in the untouched original game
+data (not introduced by this project's tooling). This is exactly the
+kind of edge case `jamboree_board_studio.core.board.validator` is
+designed to catch, and it does — `validate_workspace_boards` correctly
+flags it before export. Whether the game itself silently ignores such
+edges at runtime (most likely, since the game obviously runs fine) or
+whether `Attribute: 2` + zero-length + empty-Bezier is itself a
+recognized "this edge is inert, don't render/traverse it" pattern worth
+special-casing in the validator is Unknown — for now this is correctly
+treated as a real (if harmless) data quirk, not a project bug.
 
 This `NodeNo -> Path[].NodeNo` structure is a real, directed adjacency
 graph — already parsed, already drawn as arrows in the existing Map
@@ -202,12 +292,17 @@ space/path/position research and are already fully understood — see
 | Structure | Status |
 |---|---|
 | Space id (`NodeNo`) | Known |
-| Space type (`MassAttr`) | Known (partial — 8/15 seen values are editable) |
+| `MapNode` full key set (23 fields) | **Known, verified** — 19 of 23 fields still have Unknown meaning |
+| Space type (`MassAttr`) | **Known, verified** — 18 real values inventoried; 8 editable, 2 (`""`, `Start`) common but unreachable via the tool, 1 (`Spot`) undocumented anywhere |
+| `Star`/`Boo` as `MassAttr` | **Confirmed absent** from real dump under those names |
 | NPC-linked flag (`NpcNodeNo0`) | Known field, Unknown meaning |
-| Space real position/transform | Unknown — no field found |
-| Space visual position (inferred) | Known technique, explicitly an approximation, X/Z only |
-| Connections/paths (`MapPath`) | Known structure, Probably correct semantics |
-| Bezier curve meaning beyond `[0]` | Unknown |
+| Space real position/transform on `MapNode` | **Confirmed absent** — no field found in the exhaustive real key set |
+| 3D position candidate on `MapPath` Bezier (`Anchor`/`Position`, incl. Y) | **New finding** — fields confirmed to exist; whether authoritative is Hypothesis |
+| Space visual position (inferred, current code) | Known technique, explicitly an approximation, X/Z only (leaves `Y`/`Anchor*` on the table) |
+| Connections/paths (`MapPath`) top-level | Known structure, Probably correct semantics |
+| `Path[]` edge full key set (`NodeNo, Attribute, Length, Bezier`) | **Known, verified** — `Attribute`/`Length` newly documented, meaning still Unknown |
+| Bezier array element count | **Confirmed**: 1 element in 1028/1029 real edges, 0 in exactly 1 (the dangling Map03 edge) |
+| Dangling connection (Map03 → nonexistent node `301`) | **Confirmed real, pre-existing game-data quirk**, correctly caught by `validate_workspace_boards` |
 | Branching paths | Probably (plausible, unverified) |
 | Directionality requirement (need reverse edge?) | Unknown |
 | Event-to-space linkage | Unknown / no evidence found — treated as board-wide, not per-space |
