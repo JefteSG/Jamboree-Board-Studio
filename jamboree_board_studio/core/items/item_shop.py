@@ -137,6 +137,17 @@ def serialize_item_shop(
     mirrors ``jamboree_board_studio.legacy.editor_modules.item_shop.save_itemshop_mapdata``'s own
     fallback exactly, including its printed message; apparently an
     entirely empty shop/phase isn't a state the game handles cleanly.
+
+    At least one real board (Map05/Rainbow Galleria) has entries with a
+    ``Type``/``Phase`` combination outside the ``SHOPS``/``PHASES`` grid
+    this module understands (confirmed against a real dump — some other
+    per-board shop mechanic, not yet reverse-engineered). Those entries
+    are invisible to ``parse_item_shop`` and so can't come back through
+    ``entries``; without special handling they would silently vanish on
+    every save. To avoid that data loss, this reads whatever is already
+    on disk first and carries forward, unmodified, any entry this parser
+    doesn't recognize — the same "preserve what we don't understand"
+    contract the board parser/serializer already keep via `game_data`.
     """
     by_position = {(e.shop, e.phase, e.slot): e for e in entries}
 
@@ -166,5 +177,16 @@ def serialize_item_shop(
                 data["Price"] = slot.price
                 raw_entries.append(data)
 
-    with open(_file_path(workspace_path, map_name), "w", encoding="utf-8-sig") as f:
+    path = _file_path(workspace_path, map_name)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8-sig") as f:
+            try:
+                existing_entries = json.load(f).get(map_name, [])
+            except json.JSONDecodeError:
+                existing_entries = []
+        for entry in existing_entries:
+            if _SHOP_BY_TYPE.get(entry.get("Type")) is None or entry.get("Phase") not in PHASES:
+                raw_entries.append(entry)
+
+    with open(path, "w", encoding="utf-8-sig") as f:
         json.dump({map_name: raw_entries}, f)

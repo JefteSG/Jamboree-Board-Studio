@@ -101,6 +101,15 @@ def build_board_from_raw(
 
     connections: list[BoardConnection] = []
     path_entry_extra: dict[str, dict] = {}
+    # Real MapPath.json files have entries like {"NodeNo": X, "Path": []}
+    # for dead-end nodes -- confirmed against a real dump, these are 11-41%
+    # of a board's MapPath entries. A BoardConnection only exists per edge,
+    # so an empty Path produces none, and (having no fields beyond
+    # NodeNo/Path) such an entry never lands in path_entry_extra either --
+    # with nothing else recorded, the entry would silently vanish on the
+    # next serialize_board. Tracking their source ids here, in original
+    # file order, is what lets the serializer put them back.
+    empty_path_sources: list[str] = []
 
     for path_entry in raw["MapPath"]:
         source_id = str(path_entry["NodeNo"])
@@ -108,7 +117,10 @@ def build_board_from_raw(
         if extra:
             path_entry_extra[source_id] = extra
 
-        for segment in path_entry.get("Path", []):
+        segments = path_entry.get("Path", [])
+        if not segments:
+            empty_path_sources.append(source_id)
+        for segment in segments:
             connections.append(
                 BoardConnection(
                     source=source_id,
@@ -122,5 +134,8 @@ def build_board_from_raw(
         name=board_name or map_name,
         spaces=spaces,
         connections=connections,
-        metadata={"map_path_extra": path_entry_extra},
+        metadata={
+            "map_path_extra": path_entry_extra,
+            "map_path_empty_sources": empty_path_sources,
+        },
     )

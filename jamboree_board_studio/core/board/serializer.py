@@ -36,6 +36,14 @@ def board_to_raw_map_layout(board: Board) -> dict:
     for connection in board.connections:
         grouped.setdefault(connection.source, []).append(dict(connection.game_data))
 
+    # Restore dead-end nodes' {"NodeNo": X, "Path": []} entries (see
+    # parser.build_board_from_raw) that would otherwise vanish because they
+    # produce zero BoardConnections. Appended after the real paths: original
+    # MapPath order isn't known to matter (entries are matched by NodeNo,
+    # not position), but this is what's confirmed, not assumed.
+    for source_id in board.metadata.get("map_path_empty_sources", []):
+        grouped.setdefault(source_id, [])
+
     map_paths = []
     for source_id, segments in grouped.items():
         entry = dict(path_entry_extra.get(source_id, {}))
