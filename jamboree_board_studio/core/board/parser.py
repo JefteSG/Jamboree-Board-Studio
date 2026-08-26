@@ -139,3 +139,24 @@ def build_board_from_raw(
             "map_path_empty_sources": empty_path_sources,
         },
     )
+
+
+def remove_connection_from_raw(raw: dict, connection: BoardConnection) -> None:
+    """Remove a connection's underlying segment from a raw ``{"MapPath": [...]}`` dict, in place.
+
+    ``BoardConnection.game_data`` is the *same* segment dict object found
+    inside ``raw["MapPath"][i]["Path"]`` (see ``build_board_from_raw``
+    above) -- deliberately, so that an edit is visible wherever that raw
+    dict is already used (e.g. the legacy "Save Map Data" button), with
+    no second copy of edit state to go stale. Removing a connection from
+    ``Board.connections`` alone would not do that: this is the other half
+    of that contract, for deletion specifically. Matches by identity
+    (``is``), not equality, so it can't accidentally remove a different,
+    merely-identical-looking segment.
+    """
+    for path_entry in raw["MapPath"]:
+        if str(path_entry["NodeNo"]) == connection.source:
+            path_entry["Path"] = [
+                segment for segment in path_entry.get("Path", []) if segment is not connection.game_data
+            ]
+            return

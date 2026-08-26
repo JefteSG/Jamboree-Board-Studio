@@ -37,7 +37,7 @@ from jamboree_board_studio.legacy.editor_modules.map_layout import (
     load_map_layout_mapdata,
     save_map_layout_mapdata,
 )
-from jamboree_board_studio.core.board.parser import build_board_from_raw
+from jamboree_board_studio.core.board.parser import build_board_from_raw, remove_connection_from_raw
 from jamboree_board_studio.ui.widgets.board_canvas import BoardCanvas
 from jamboree_board_studio.ui.widgets.hidden_block_panel import HiddenBlockPanel
 from jamboree_board_studio.ui.widgets.item_bag_panel import ItemBagPanel
@@ -334,7 +334,10 @@ class MapTab(tk.Frame):
         self.board_canvas.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
         self.inspector_panel = InspectorPanel(
-            self.board_workspace_tab, on_apply=self._on_board_space_applied
+            self.board_workspace_tab,
+            on_apply=self._on_board_space_applied,
+            on_retarget_connection=self._on_board_connection_retargeted,
+            on_delete_connection=self._on_board_connection_deleted,
         )
         self.inspector_panel.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
 
@@ -348,10 +351,10 @@ class MapTab(tk.Frame):
         self.space_list.select_space(space.id)
 
     def _on_board_connection_selected(self, connection):
-        # A path arrow was clicked on the canvas: show it read-only in
-        # the inspector, and clear the space list's highlight since
-        # nothing there corresponds to a connection.
-        self.inspector_panel.show_connection(connection)
+        # A path arrow was clicked on the canvas: show it in the
+        # inspector (retarget/delete), and clear the space list's
+        # highlight since nothing there corresponds to a connection.
+        self.inspector_panel.show_connection(self.board.id, connection)
         self.board_canvas.select_connection(connection.source, connection.target)
         self.space_list.select_space(None)
 
@@ -361,6 +364,27 @@ class MapTab(tk.Frame):
         # the inspector.
         self.board_canvas.select_space(space.id)
         self.space_list.refresh_space(space)
+
+    def _reload_board_canvas(self):
+        self.board_canvas.load_board(
+            self.board,
+            reverse_x=map_layout_settings[self.map_name]["reverse_x"],
+            reverse_y=map_layout_settings[self.map_name]["reverse_y"],
+        )
+
+    def _on_board_connection_retargeted(self, connection):
+        # connection.game_data was already updated in place by the
+        # inspector (same dict object save_data() writes out), so this
+        # only needs to redraw the arrow at its new endpoint.
+        self._reload_board_canvas()
+
+    def _on_board_connection_deleted(self, connection):
+        # Remove the edge from the raw MapPath data (single source of
+        # truth save_data() writes out) and from the in-memory Board, then
+        # redraw without it.
+        remove_connection_from_raw(self.map_layout_data, connection)
+        self.board.connections.remove(connection)
+        self._reload_board_canvas()
 
     def load_data(self):
         self.item_shop_data = load_itemshop_mapdata(self.WORKSPACE_PATH, self.map_name)
@@ -409,6 +433,7 @@ class MapTab(tk.Frame):
             reverse_y=map_layout_settings[self.map_name]["reverse_y"],
         )
         self.space_list.load_board(self.board)
+        self.inspector_panel.set_board(self.board)
         self.inspector_panel.clear()
 
     def randomize_data(self):

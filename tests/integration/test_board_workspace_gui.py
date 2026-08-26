@@ -57,7 +57,7 @@ def test_selecting_a_space_updates_inspector_and_canvas(tk_app):
     assert first_tab.board_canvas.selected_space_id == "0"
 
 
-def test_selecting_a_connection_shows_it_read_only_and_clears_space_selection(tk_app):
+def test_selecting_a_connection_shows_it_editable_and_clears_space_selection(tk_app):
     app = tk_app
     first_tab = app.notebook.nametowidget(app.notebook.tabs()[0])
     board = first_tab.board
@@ -76,13 +76,104 @@ def test_selecting_a_connection_shows_it_read_only_and_clears_space_selection(tk
         connection.source in first_tab.inspector_panel.id_value["text"]
         and connection.target in first_tab.inspector_panel.id_value["text"]
     )
+    # The space-type Apply button stays disabled -- a connection isn't a
+    # space -- but retargeting/deleting the connection itself is enabled.
     assert str(first_tab.inspector_panel.apply_button["state"]) == "disabled"
+    assert str(first_tab.inspector_panel.retarget_button["state"]) == "normal"
+    assert str(first_tab.inspector_panel.delete_connection_button["state"]) == "normal"
     assert first_tab.board_canvas.selected_connection_key == (
         connection.source,
         connection.target,
     )
     assert first_tab.board_canvas.selected_space_id is None
     assert first_tab.space_list.tree.selection() == ()
+
+
+def test_retargeting_a_connection_updates_data_and_canvas(tk_app):
+    app = tk_app
+    first_tab = app.notebook.nametowidget(app.notebook.tabs()[0])
+    board = first_tab.board
+
+    connection = next(c for c in board.connections if c.source == "0")
+    old_target = connection.target
+    new_target = next(s.id for s in board.spaces if s.id not in (connection.source, old_target))
+
+    first_tab._on_board_connection_selected(connection)
+    app.update()
+    first_tab.inspector_panel.target_combobox.set(new_target)
+    first_tab.inspector_panel._retarget()
+    app.update()
+
+    assert connection.target == new_target
+    assert connection.game_data["NodeNo"] == int(new_target)
+    # Redrawn at the new endpoint, not left pointing at the old one.
+    assert any(
+        entry["connection"] is connection for entry in first_tab.board_canvas._arrow_patches
+    )
+
+
+def test_deleting_a_connection_removes_it_from_board_and_raw_data(tk_app, monkeypatch):
+    app = tk_app
+    first_tab = app.notebook.nametowidget(app.notebook.tabs()[0])
+    board = first_tab.board
+
+    # Node "1" has two outgoing edges in the fixture (to "2" and a branch
+    # to "3") -- deleting one must not disturb the other.
+    connection = next(c for c in board.connections if c.source == "1" and c.target == "3")
+    surviving = next(c for c in board.connections if c.source == "1" and c.target == "2")
+
+    from jamboree_board_studio.ui.widgets import inspector_panel as inspector_panel_module
+
+    monkeypatch.setattr(inspector_panel_module.messagebox, "askyesno", lambda *a, **k: True)
+
+    first_tab._on_board_connection_selected(connection)
+    app.update()
+    first_tab.inspector_panel._delete_connection()
+    app.update()
+
+    assert connection not in board.connections
+    assert surviving in board.connections
+    raw_path_entry = next(e for e in first_tab.map_layout_data["MapPath"] if e["NodeNo"] == 1)
+    assert connection.game_data not in raw_path_entry["Path"]
+    assert surviving.game_data in raw_path_entry["Path"]
+    assert not any(entry["connection"] is connection for entry in first_tab.board_canvas._arrow_patches)
+
+
+def test_save_persists_connection_retarget_to_disk(tk_app, full_workspace):
+    # Note: this file's tk_app/full_workspace fixtures are module-scoped
+    # (see conftest.py) -- every test in this module shares one live board
+    # and one on-disk workspace, mutated incrementally in definition order.
+    # By this point test_deleting_a_connection_removes_it_from_board_and_raw_data
+    # has already removed node "1"'s branch to "3"; this test only checks
+    # that a retarget survives a save, not any particular prior state.
+    app = tk_app
+    first_tab = app.notebook.nametowidget(app.notebook.tabs()[0])
+    board = first_tab.board
+
+    retargeted = next(c for c in board.connections if c.source == "0")
+    new_target = next(
+        s.id for s in board.spaces if s.id not in (retargeted.source, retargeted.target)
+    )
+
+    first_tab._on_board_connection_selected(retargeted)
+    app.update()
+    first_tab.inspector_panel.target_combobox.set(new_target)
+    first_tab.inspector_panel._retarget()
+    app.update()
+
+    app.save_data()
+    app.update()
+
+    saved_path = json.load(
+        open(
+            os.path.join(
+                full_workspace, "bd~bd01.nx", "bd", "bd01", "data", "bd01_MapPath.json"
+            ),
+            encoding="utf-8-sig",
+        )
+    )["MapPath"]
+    entry_0 = next(e for e in saved_path if e["NodeNo"] == 0)
+    assert entry_0["Path"][0]["NodeNo"] == int(new_target)
 
 
 def test_selecting_via_the_space_list_stays_in_sync_and_does_not_hang(tk_app):
