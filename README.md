@@ -60,12 +60,12 @@ to either project (or both) is welcome:
 
 ### ⚠️ WARNING
 
-Since **version 1.1.0**, the software uses **pythonnet** (.NET/Mono) along with **BezelEngineArchive_Lib** to extract and repack Bezel Engine Archive files.
+Since **version 1.1.0**, the software uses **pythonnet** (.NET, via CoreCLR) along with **BezelEngineArchive_Lib** to extract and repack Bezel Engine Archive files.
 > **Note:**  
 > This tool relies on an **external C# library**:  
 > [KillzXGaming/BEA-Library-Editor – BezelEngineArchive_Lib](https://github.com/KillzXGaming/BEA-Library-Editor/tree/master/BezelEngineArchive_Lib)  
 > This library is **automatically downloaded on the first launch** of the application.
-> **Implemented for Windows with .NET 8** (tested and working). **Mono support implemented but untested.**
+> **Implemented and tested on Windows (.NET 8) and Linux.** The library targets net8.0, so **Mono cannot host it** (it hard-crashes instead of raising a catchable error) — on Linux/macOS the app loads **CoreCLR** via pythonnet's `dotnet_root` (defaults to `~/.dotnet`, override with the `DOTNET_ROOT` env var), the same as Windows. Install the [.NET 8 runtime](https://dotnet.microsoft.com/download/dotnet/8.0) — not Mono — if running from source on Linux/macOS.
 
 ---
 
