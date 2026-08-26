@@ -125,9 +125,10 @@ names.
 ## Space position
 
 **Status: `MapNode` has no position field — confirmed against real dump.
-A real candidate field for actual 3D position exists on `MapPath`
-Bezier data, previously undocumented; whether it's authoritative is
-still Hypothesis.**
+`Position0/1` on `MapPath` Bezier data is a real, confirmed per-node 3D
+position. `Anchor0/1` is confirmed **not** a position (curve-local data).
+`BoardSpace.position` can be safely populated from `Position`; this has
+not been implemented yet.**
 
 Files inspected: `bd{NN}_MapNode.json`, `bd{NN}_MapPath.json`, all of
 `editor_modules/map_layout.py`.
@@ -140,38 +141,57 @@ stored per-node — it's inferred, once per node, as a side effect of
 walking `MapPath` segments (see below), using only the first `Bezier`
 control point touching that node, and only its X/Z components.
 
-**Update**: "no height/Y at all" (the original claim here) is **wrong**
-— see the Connections/Paths section below. The real `Bezier` structure
-has full X/Y/Z for two *different* kinds of point (`Position0/1` and
-`Anchor0/1`), only the existing code has only ever read
-`Position0X`/`Position0Z`. This means real 3D position data — including
-height — exists somewhere in the file the visual layer already parses;
-it's just never been extracted or interpreted as such. Whether
-`Anchor`/`Position` correspond to "the actual point on the curve" vs.
-"a control handle" (standard Bezier terminology would suggest `Anchor`
-= on-curve, `Position` = control point, but this is a guess from the
-field names alone, not verified against rendering behavior) — and
-whether either one is a trustworthy stand-in for "where this node really
-is in 3D space" as opposed to being purely local to that one path
-segment's curve shape — is **Hypothesis, not Known**. Worth a follow-up
-pass: compare `Anchor`/`Position` values from *every* edge touching a
-given `NodeNo` — if they agree closely across edges, that's real
-evidence the node has one true position; if they diverge, they're
-probably just curve-local geometry.
+**Resolved** (this doc previously flagged this as Hypothesis and proposed
+exactly this test): every edge touching a given `NodeNo` contributes an
+independent claim about that node's 3D coordinate — an outgoing edge's
+`Position0`/`Anchor0`, or an incoming edge's `Position1`/`Anchor1`. If a
+field is a real per-node position, every independent claim about the
+same node should agree; if it's curve-local, they shouldn't. Checked
+across all 969 nodes touched by at least one edge, over all 7 boards:
 
-This is why `jamboree_board_studio.core.board.models.BoardSpace.position`
-is left `None` by the parser: even with the above, it is not yet a
-*confirmed* real position, only a promising unverified lead. Treating it
-as authoritative position data before that follow-up would risk baking a
-wrong assumption into the new domain model. The approximation already in
-use is instead exposed separately as `BoardSpace.visual_position`,
-computed by presentation code, explicitly never written back to game
-files.
+| Field | Nodes with ≥2 independent claims | Agree within 0.01 units | Median disagreement | Worst disagreement |
+|---|---|---|---|---|
+| `Position` | 933 | 913 (97.9%) | 0.0000 | 0.36 units (node 512, Map02, a `SpotBranch`) |
+| `Anchor` | 933 | 0 (0%) | 2.84 units | 16.68 units |
+
+`Position` is now **Known**: it is a real, per-node, board-space 3D
+coordinate (X/Y/Z, height included) — the same node's position as seen
+from every edge that touches it, agreeing almost exactly. The 20 nodes
+(2.1%) with a larger-than-floating-point-noise disagreement still only
+disagree by up to ~0.36 units, in a board whose spatial extent is ~100+
+units — over half of these 20 are `SpotBranch` nodes (where multiple
+divergent paths meet, plausibly with a small per-branch visual offset by
+original level-design intent) or spaces with a `Y` difference around 0.1
+(plausibly a small hop/step-height animation detail). None of the 20
+looks like a data-integrity problem, just real, small, non-uniform
+placement tolerance — nothing here should block treating `Position` as
+authoritative.
+
+`Anchor` is now **Known to not be a position**: independent claims about
+the same node disagree by whole units on average (median 2.84, worst
+16.68) — far beyond anything explainable as placement tolerance. It is
+almost certainly Bezier control-handle data (tangent/curvature
+information for how the curve bends near that point), local to each
+individual edge, not a node property. Standard Bezier terminology would
+call `Position` the on-curve anchor point and `Anchor` here the tangent
+control handle — the reverse of what the field names alone would
+suggest — but this is now an evidence-based conclusion, not a guess from
+naming.
+
+**Still not done**: actually wiring `Position` into
+`jamboree_board_studio.core.board.models.BoardSpace.position` and
+`core.board.parser`/`serializer`. This section only establishes that
+doing so would be sound; implementing it means picking a concrete
+strategy for nodes with multiple near-identical claims (e.g. average
+them, or just take the first) and deciding whether the ~2% with real
+disagreement should average, prefer one edge's claim over another's, or
+surface the disagreement somehow. None of that has been designed yet.
 
 **Potential candidates for a future search**, still not investigated:
 any 3D model/level files that would need to reference actual node
-placement for rendering purposes (course meshes, collision data). These
-are entirely outside `editor_modules/`'s current scope.
+placement for rendering purposes (course meshes, collision data). Likely
+lower priority now that `Position` looks like a confirmed, simpler
+source for the same information.
 
 ## Connections / Paths
 
@@ -297,7 +317,8 @@ space/path/position research and are already fully understood — see
 | `Star`/`Boo` as `MassAttr` | **Confirmed absent** from real dump under those names |
 | NPC-linked flag (`NpcNodeNo0`) | Known field, Unknown meaning |
 | Space real position/transform on `MapNode` | **Confirmed absent** — no field found in the exhaustive real key set |
-| 3D position candidate on `MapPath` Bezier (`Anchor`/`Position`, incl. Y) | **New finding** — fields confirmed to exist; whether authoritative is Hypothesis |
+| `Position0/1` on `MapPath` Bezier (incl. Y) | **Confirmed real per-node 3D position** — 97.9% of nodes with independent claims agree within 0.01 units; not yet wired into `BoardSpace.position` |
+| `Anchor0/1` on `MapPath` Bezier | **Confirmed NOT a position** — independent claims disagree by whole units (median 2.84); almost certainly a curve control handle |
 | Space visual position (inferred, current code) | Known technique, explicitly an approximation, X/Z only (leaves `Y`/`Anchor*` on the table) |
 | Connections/paths (`MapPath`) top-level | Known structure, Probably correct semantics |
 | `Path[]` edge full key set (`NodeNo, Attribute, Length, Bezier`) | **Known, verified** — `Attribute`/`Length` newly documented, meaning still Unknown |
